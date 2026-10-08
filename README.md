@@ -1,16 +1,44 @@
-# React + Vite
+# SkillLoop
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Peer-learning app for grades 7–12. Students post short text explanations. Reputation in a subject is the count of **helpful votes from other students**, never a self-reported score.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+1. Create a project at [supabase.com](https://supabase.com).
+2. In the SQL Editor, paste and run [`supabase/schema.sql`](supabase/schema.sql).
+3. Authentication → Providers → Email → turn **off** “Confirm email” so sign-up returns a session immediately.
+4. Copy env values:
 
-## React Compiler
+```bash
+cp .env.example .env
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Fill `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` from Supabase → Project Settings → API. Do not commit `.env`.
 
-## Expanding the Oxlint configuration
+5. Install and run:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:5173
+
+## What Phase 1 includes
+
+- Email + password sign up, sign in, and sign out
+- A `profiles` row on sign-up (display name, grade 7–12, role `student`)
+- Subjects you can teach or need help with (`user_subjects`)
+- Explanations stored in Postgres; data survives reload
+- One vote per user per explanation (toggle). You cannot vote on your own post (unique constraint, trigger, and RLS)
+- Reputation from the `subject_reputation` SQL view
+- Feed, profile, match suggestions, and write pages
+- Loading and error states on every data screen
+
+Teachers are not self-serve. Promote someone in the SQL editor:
+
+```sql
+update public.profiles set role = 'teacher' where id = '<auth user uuid>';
+```
+
+The `feedback` table is in the schema for comments/ratings (wired in Phase 2). Match “Request trade” is still a placeholder until Phase 2 help requests.
