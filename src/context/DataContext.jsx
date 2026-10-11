@@ -208,6 +208,21 @@ export function DataProvider({ children }) {
     [profile?.id],
   )
 
+  // Only the comment's own author can delete it (RLS). Deleting a comment also
+  // deletes its replies in the database, so drop them here too.
+  const deleteFeedback = useCallback(async (feedbackId) => {
+    const { data, error: deleteError } = await supabase
+      .from('feedback')
+      .delete()
+      .eq('id', feedbackId)
+      .select('id')
+    if (deleteError) throw deleteError
+    if (!data?.length) throw new Error('You can only delete your own comments.')
+    setFeedback((list) =>
+      list.filter((item) => item.id !== feedbackId && item.parentId !== feedbackId),
+    )
+  }, [])
+
   const addQuestion = useCallback(
     async ({ subject, body }) => {
       const meId = profile?.id
@@ -292,6 +307,7 @@ export function DataProvider({ children }) {
       toggleVote,
       addExplanation,
       addFeedback,
+      deleteFeedback,
       addQuestion,
       sendHelpRequest,
       respondToHelpRequest,
@@ -315,6 +331,7 @@ export function DataProvider({ children }) {
       toggleVote,
       addExplanation,
       addFeedback,
+      deleteFeedback,
       addQuestion,
       sendHelpRequest,
       respondToHelpRequest,

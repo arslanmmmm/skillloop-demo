@@ -7,7 +7,7 @@ const RATING_WORDS = ['', 'Very confusing', 'Confusing', 'Okay', 'Clear', 'Very 
 
 export default function FeedbackThread({ explanationId, authorId }) {
   const { profile } = useAuth()
-  const { feedback, userById, addFeedback, showToast } = useAppData()
+  const { feedback, userById, addFeedback, deleteFeedback, showToast } = useAppData()
   const meId = profile?.id
   const isAuthor = meId === authorId
 
@@ -68,6 +68,10 @@ export default function FeedbackThread({ explanationId, authorId }) {
                 item={item}
                 user={userById[item.authorId]}
                 isAuthor={item.authorId === authorId}
+                canDelete={item.authorId === meId}
+                replyCount={(repliesByParent[item.id] ?? []).length}
+                onDelete={deleteFeedback}
+                onError={showToast}
               />
               {((repliesByParent[item.id] ?? []).length > 0 || isAuthor) && (
                 <div className="replies">
@@ -77,6 +81,9 @@ export default function FeedbackThread({ explanationId, authorId }) {
                         item={reply}
                         user={userById[reply.authorId]}
                         isAuthor={reply.authorId === authorId}
+                        canDelete={reply.authorId === meId}
+                        onDelete={deleteFeedback}
+                        onError={showToast}
                         small
                       />
                     </div>
@@ -100,7 +107,16 @@ export default function FeedbackThread({ explanationId, authorId }) {
   )
 }
 
-function CommentBody({ item, user, isAuthor, small = false }) {
+function CommentBody({
+  item,
+  user,
+  isAuthor,
+  canDelete = false,
+  replyCount = 0,
+  onDelete,
+  onError,
+  small = false,
+}) {
   const name = user?.displayName || 'Student'
   return (
     <div className="comment-row">
@@ -119,7 +135,54 @@ function CommentBody({ item, user, isAuthor, small = false }) {
           </p>
         )}
         <p className="comment-text">{item.body}</p>
+        {canDelete && (
+          <DeleteControl
+            replyCount={replyCount}
+            onConfirm={() => onDelete(item.id)}
+            onError={onError}
+          />
+        )}
       </div>
+    </div>
+  )
+}
+
+function DeleteControl({ replyCount, onConfirm, onError }) {
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function confirm() {
+    setBusy(true)
+    try {
+      await onConfirm()
+    } catch (err) {
+      onError(err.message || 'Could not delete comment')
+      setBusy(false)
+      setAsking(false)
+    }
+  }
+
+  if (!asking) {
+    return (
+      <button type="button" className="reply-btn" onClick={() => setAsking(true)}>
+        Delete
+      </button>
+    )
+  }
+
+  return (
+    <div className="delete-confirm" role="alert">
+      <span>
+        Delete this comment?
+        {replyCount > 0 &&
+          ` The ${replyCount === 1 ? 'reply' : `${replyCount} replies`} under it will be deleted too.`}
+      </span>
+      <button type="button" className="text-btn cancel" onClick={() => setAsking(false)} disabled={busy}>
+        Cancel
+      </button>
+      <button type="button" className="danger-btn" onClick={confirm} disabled={busy}>
+        {busy ? 'Deleting…' : 'Delete'}
+      </button>
     </div>
   )
 }
