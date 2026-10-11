@@ -552,6 +552,33 @@ h2 {
   vertical-align: middle;
 }
 
+/* Skill levels from src/config/reputation.js: grey, blue, gold. */
+.badge.tier-new {
+  background: var(--chip);
+  color: var(--muted);
+}
+
+.badge.tier-trusted {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badge.tier-top {
+  background: var(--star-soft);
+  color: #a15c00;
+  box-shadow: inset 0 0 0 1px #f3d28b;
+}
+
+.badge.tier-top::before {
+  content: '★ ';
+  color: var(--star);
+}
+
+.badge.tier-trade {
+  background: #e7f6ec;
+  color: #1c7a3d;
+}
+
 .step-dots {
   display: flex;
   gap: 6px;

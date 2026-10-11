@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { reputationLabel } from '../config/reputation.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { useVote } from '../hooks/useVote.js'
 import { feedbackStats, formatPostedAt, initials, voteCount } from '../lib/helpers.js'
 import FeedbackThread from './FeedbackThread.jsx'
+import ReputationBadge from './ReputationBadge.jsx'
 
 export default function FeedCard({ item, author }) {
   const { profile } = useAuth()
@@ -18,7 +18,6 @@ export default function FeedCard({ item, author }) {
   const [open, setOpen] = useState(false)
   const helpful = voteCount(votes, item.id)
   const score = reputation(item.authorId, item.subject)
-  const label = reputationLabel(score)
   const stats = feedbackStats(feedback, item.id)
 
   return (
@@ -28,11 +27,10 @@ export default function FeedCard({ item, author }) {
         <div>
           <strong>
             {author?.displayName || 'Unknown'}{' '}
-            <span className="badge">{label}</span>
+            <ReputationBadge score={score} subject={item.subject} />
           </strong>
           <p className="meta">
-            Grade {author?.grade ?? '—'} · {item.subject} · {formatPostedAt(item.createdAt)}{' '}
-            · reputation in {item.subject}: {score}
+            Grade {author?.grade ?? '—'} · {item.subject} · {formatPostedAt(item.createdAt)}
           </p>
         </div>
       </div>

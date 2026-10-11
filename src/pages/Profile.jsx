@@ -1,6 +1,6 @@
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { reputationLabel } from '../config/reputation.js'
+import ReputationBadge from '../components/ReputationBadge.jsx'
 import { initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
@@ -38,7 +38,7 @@ export default function ProfilePage() {
                   <li key={subj}>
                     <span>
                       {subj}{' '}
-                      <span className="badge">{reputationLabel(score)}</span>
+                      <ReputationBadge score={score} subject={subj} />
                     </span>
                     <strong className="score">{score}</strong>
                   </li>

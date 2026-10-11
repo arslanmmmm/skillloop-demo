@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { FeedSkeleton } from '../components/FeedCard.jsx'
-import { reputationLabel } from '../config/reputation.js'
+import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
@@ -194,8 +194,8 @@ export default function MatchesPage() {
                   <div>
                     <strong>
                       {user.displayName}{' '}
-                      <span className="badge">{reputationLabel(score)}</span>
-                      {youTeach.length > 0 && <span className="badge">Trade</span>}
+                      <ReputationBadge score={score} subject={subject} />
+                      {youTeach.length > 0 && <span className="badge tier-trade">Trade</span>}
                     </strong>
                     <p className="meta">
                       Grade {user.grade ?? '—'} · {score} helpful{' '}
