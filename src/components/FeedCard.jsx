@@ -48,11 +48,20 @@ export default function FeedCard({ item, author }) {
         >
           Helpful · {helpful}
         </button>
-        <button type="button" className="react" onClick={() => setOpen((value) => !value)}>
-          {stats.count === 0
-            ? 'Comments'
-            : `Comments · ${stats.count}${stats.average != null ? ` · ${stats.average}/5 clear` : ''}`}
+        <button
+          type="button"
+          className={open ? 'react on' : 'react'}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {stats.count === 0 ? 'Comment' : `Comments · ${stats.count}`}
         </button>
+        {stats.average != null && (
+          <span className="clarity-pill" title="Average clarity rating from readers">
+            <span className="star on" aria-hidden="true">★</span>
+            {stats.average.toFixed(1)} clarity
+          </span>
+        )}
       </div>
       {open && <FeedbackThread explanationId={item.id} authorId={item.authorId} />}
     </article>

@@ -256,6 +256,8 @@ h2 {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
   margin-top: 16px;
   padding-top: 12px;
@@ -273,6 +275,7 @@ h2 {
 }
 
 .react {
+  white-space: nowrap;
   background: transparent;
   color: var(--muted);
   padding: 8px 12px;
@@ -512,83 +515,278 @@ h2 {
   background: var(--accent);
 }
 
+/* Comments: summary bar, composer, then a thread of comments with replies. */
 .feedback {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px dashed var(--line);
-}
-
-.comment-list {
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 0;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
-.comment p,
-.reply p {
+.feedback-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  font-size: 15px;
+}
+
+.summary-clarity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.star {
+  color: #d5dae3;
+}
+
+.star.on {
+  color: var(--star);
+}
+
+.clarity-pill {
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--star-soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback-note,
+.feedback-empty {
   margin: 0;
+  color: var(--muted) !important;
+  font-size: 13px;
 }
 
-.reply {
-  margin-top: 8px;
-  margin-left: 12px;
-  padding: 8px 10px;
-  background: var(--chip);
-  border-radius: 10px;
+.feedback-empty {
+  padding: 14px;
+  border-radius: 12px;
+  background: #fbfcfe;
+  text-align: center;
 }
 
-.comment-form {
+.avatar.sm {
+  width: 34px;
+  height: 34px;
+  font-size: 12px;
+}
+
+.avatar.xs {
+  width: 26px;
+  height: 26px;
+  font-size: 10px;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.composer-main {
+  flex: 1;
+  min-width: 0;
   display: grid;
   gap: 8px;
-  margin-top: 10px;
 }
 
-.comment-form.nested {
-  margin-left: 12px;
+.composer textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+  resize: vertical;
+  min-height: 64px;
 }
 
-.comment-form .primary {
+.composer textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.composer-actions .muted {
+  margin-right: auto;
+  font-size: 12px;
+}
+
+.composer-actions .primary {
   margin-top: 0;
-  justify-self: start;
+  padding: 8px 16px;
+  border-radius: 999px;
 }
 
-.form-label {
+.composer-actions .cancel {
   margin: 0;
+  padding: 8px 6px;
+  color: var(--muted);
+}
+
+.rate-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.rate-label {
   font-size: 13px;
   font-weight: 600;
 }
 
-.rating {
-  display: flex;
-  gap: 6px;
+.rate-word {
+  font-size: 13px;
+  color: var(--muted);
 }
 
-.rate {
+.star-picker {
+  display: inline-flex;
+}
+
+.star-pick {
   position: relative;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  font-size: 14px;
-  font-weight: 700;
+  padding: 0 2px;
+  font-size: 24px;
+  line-height: 1;
+  color: #d5dae3;
   cursor: pointer;
+  transition: color 0.1s, transform 0.1s;
 }
 
-.rate input {
+.star-pick.on {
+  color: var(--star);
+}
+
+.star-pick:hover {
+  transform: scale(1.12);
+}
+
+.star-pick input {
   position: absolute;
   opacity: 0;
   pointer-events: none;
 }
 
-.rate.on {
-  background: var(--accent-soft);
-  color: var(--accent);
-  border-color: transparent;
+.star-pick:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+
+.comment-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.card .comment-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.comment-sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.author-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.card .comment-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.card .comment-text {
+  margin-top: 4px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.replies {
+  margin: 10px 0 0 16px;
+  padding-left: 18px;
+  border-left: 2px solid var(--line);
+  display: grid;
+  gap: 12px;
+}
+
+.reply-btn {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  padding: 4px 10px;
+  margin-left: -10px;
+  border-radius: 999px;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reply-btn:hover {
+  background: var(--chip);
+  color: var(--ink);
 }
 
 .actions .primary {
