@@ -130,6 +130,20 @@ create table if not exists public.help_requests (
   constraint help_requests_not_self check (requester_id <> helper_id)
 );
 
+-- What the student needs help with. Stored on the request, not in questions,
+-- so only the requester and helper can read it (questions are visible to all).
+-- New requests must have a topic (see protect_help_request); older rows may not.
+alter table public.help_requests add column if not exists topic text;
+alter table public.help_requests add column if not exists message text;
+alter table public.help_requests drop constraint if exists help_requests_topic_length;
+alter table public.help_requests
+  add constraint help_requests_topic_length
+  check (topic is null or char_length(trim(topic)) between 1 and 120);
+alter table public.help_requests drop constraint if exists help_requests_message_length;
+alter table public.help_requests
+  add constraint help_requests_message_length
+  check (message is null or char_length(trim(message)) between 1 and 1000);
+
 create index if not exists explanations_created_at_idx on public.explanations (created_at desc);
 create index if not exists explanations_author_idx on public.explanations (author_id);
 create index if not exists votes_explanation_idx on public.votes (explanation_id);
@@ -250,6 +264,11 @@ begin
       using errcode = 'P0001';
   end if;
 
+  if tg_op = 'INSERT' and coalesce(trim(new.topic), '') = '' then
+    raise exception 'Say what topic you need help with'
+      using errcode = 'P0001';
+  end if;
+
   -- The attached question must be the requester's own and in the same subject.
   if tg_op = 'INSERT' and new.question_id is not null and not exists (
     select 1
@@ -266,8 +285,10 @@ begin
     if new.requester_id <> old.requester_id
       or new.helper_id <> old.helper_id
       or new.subject <> old.subject
-      or new.question_id is distinct from old.question_id then
-      raise exception 'Cannot change who this request is for'
+      or new.question_id is distinct from old.question_id
+      or new.topic is distinct from old.topic
+      or new.message is distinct from old.message then
+      raise exception 'Only the status of a request can change'
         using errcode = 'P0001';
     end if;
     if old.status <> 'pending' then

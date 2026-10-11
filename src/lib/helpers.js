@@ -70,6 +70,8 @@ export function mapHelpRequest(row) {
     helperId: row.helper_id,
     subject: row.subject,
     questionId: row.question_id,
+    topic: row.topic,
+    message: row.message,
     status: row.status,
     createdAt: row.created_at,
   }

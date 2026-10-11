@@ -4,7 +4,7 @@ import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { findHelpers, formatPostedAt, initials } from '../lib/helpers.js'
+import { findHelpers, formatTimeAgo, initials } from '../lib/helpers.js'
 
 const STATUS_TEXT = {
   pending: 'Waiting for an answer',
@@ -22,17 +22,14 @@ export default function MatchesPage() {
     userById,
     loading,
     error,
-    addQuestion,
     sendHelpRequest,
     respondToHelpRequest,
     showToast,
   } = useAppData()
 
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
-  const [question, setQuestion] = useState('')
-  // The last question saved, so sending it to several helpers stores it once.
-  const [posted, setPosted] = useState(null)
-  const [sendingId, setSendingId] = useState('')
+  // Which helper's request form is open, so only one is open at a time.
+  const [openFormFor, setOpenFormFor] = useState('')
 
   const helpers = useMemo(
     () => findHelpers(users, reputationByUser, profile, subject),
@@ -53,33 +50,6 @@ export default function MatchesPage() {
     ...SUBJECTS.filter((item) => !profile.needs.includes(item)),
   ]
 
-  async function requestHelp(helper) {
-    setSendingId(helper.id)
-    try {
-      const body = question.trim()
-      let questionId = null
-      if (body) {
-        if (posted?.subject === subject && posted.body === body) {
-          questionId = posted.id
-        } else {
-          const saved = await addQuestion({ subject, body })
-          setPosted({ id: saved.id, subject, body })
-          questionId = saved.id
-        }
-      }
-      await sendHelpRequest({
-        helperId: helper.id,
-        subject,
-        questionId,
-        helperName: helper.displayName,
-      })
-    } catch (err) {
-      showToast(err.message || 'Could not send request')
-    } finally {
-      setSendingId('')
-    }
-  }
-
   // helpRequests is newest first, so this is the latest request to that helper.
   function latestRequest(helperId) {
     return outgoing.find(
@@ -95,8 +65,9 @@ export default function MatchesPage() {
     }
   }
 
-  function questionText(questionId) {
-    return questions.find((item) => item.id === questionId)?.body
+  // Requests sent before topics existed may have a linked question instead.
+  function requestTopic(item) {
+    return item.topic || questions.find((q) => q.id === item.questionId)?.body || ''
   }
 
   return (
@@ -104,30 +75,26 @@ export default function MatchesPage() {
       <h2>Ask for help</h2>
       <p className="hint">
         Pick a subject to see everyone who teaches it, ranked by helpful votes in
-        that subject, then by how close their grade is to yours. Add your
-        question so the helper knows what you are stuck on.
+        that subject, then by how close their grade is to yours. Then tell a
+        helper which topic you are stuck on.
       </p>
 
       <div className="card form">
         <label>
           Subject
-          <select value={subject} onChange={(event) => setSubject(event.target.value)}>
+          <select
+            value={subject}
+            onChange={(event) => {
+              setSubject(event.target.value)
+              setOpenFormFor('')
+            }}
+          >
             {subjectOptions.map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          Your question (optional)
-          <textarea
-            rows={3}
-            maxLength={1000}
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="What are you stuck on?"
-          />
         </label>
       </div>
 
@@ -137,15 +104,24 @@ export default function MatchesPage() {
           <div className="stack">
             {incoming.map((item) => {
               const who = userById[item.requesterId]
-              const linked = questionText(item.questionId)
               return (
-                <article key={item.id} className="card">
-                  <p className="meta">
-                    {who?.displayName || 'Student'} · Grade {who?.grade ?? '—'} ·{' '}
-                    {item.subject} · {formatPostedAt(item.createdAt)}
-                  </p>
-                  {linked && <p>{linked}</p>}
-                  {item.status === 'pending' ? (
+                <article key={item.id} className="card request-card">
+                  <div className="card-head">
+                    <span className="avatar sm">{initials(who?.displayName)}</span>
+                    <div>
+                      <strong>{who?.displayName || 'Student'}</strong>
+                      <p className="meta">
+                        Grade {who?.grade ?? '—'} · asked {formatTimeAgo(item.createdAt)}
+                      </p>
+                    </div>
+                    <StatusPill status={item.status} forHelper />
+                  </div>
+                  <RequestDetails
+                    subject={item.subject}
+                    topic={requestTopic(item)}
+                    message={item.message}
+                  />
+                  {item.status === 'pending' && (
                     <div className="actions">
                       <button
                         type="button"
@@ -162,8 +138,6 @@ export default function MatchesPage() {
                         Decline
                       </button>
                     </div>
-                  ) : (
-                    <p className="muted">You {item.status} this request.</p>
                   )}
                 </article>
               )
@@ -186,7 +160,7 @@ export default function MatchesPage() {
         <div className="stack">
           {helpers.map(({ user, score, youTeach }) => {
             const existing = latestRequest(user.id)
-            const sending = sendingId === user.id
+            const formOpen = openFormFor === user.id
             return (
               <article key={user.id} className="card">
                 <div className="card-head">
@@ -204,24 +178,34 @@ export default function MatchesPage() {
                   </div>
                 </div>
                 {youTeach.length > 0 && (
-                  <p className="muted">
+                  <p className="muted trade-note">
                     You can teach them back: {youTeach.join(', ')}
                   </p>
                 )}
-                <button
-                  type="button"
-                  className="primary"
-                  disabled={Boolean(existing) || sending}
-                  onClick={() => requestHelp(user)}
-                >
-                  {sending
-                    ? 'Sending…'
-                    : existing
-                      ? existing.status === 'pending'
-                        ? 'Request sent'
-                        : STATUS_TEXT[existing.status]
-                      : 'Send request'}
-                </button>
+                {existing ? (
+                  <div className="sent-row">
+                    <StatusPill status={existing.status} />
+                    {requestTopic(existing) && (
+                      <span className="muted">Topic: {requestTopic(existing)}</span>
+                    )}
+                  </div>
+                ) : formOpen ? (
+                  <RequestForm
+                    helper={user}
+                    subject={subject}
+                    onSend={sendHelpRequest}
+                    onError={showToast}
+                    onClose={() => setOpenFormFor('')}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setOpenFormFor(user.id)}
+                  >
+                    Ask for help
+                  </button>
+                )}
               </article>
             )
           })}
@@ -234,17 +218,23 @@ export default function MatchesPage() {
           <div className="stack">
             {outgoing.map((item) => {
               const helper = userById[item.helperId]
-              const linked = questionText(item.questionId)
               return (
-                <article key={item.id} className="card">
-                  <p className="meta">
-                    To {helper?.displayName || 'Student'} · {item.subject} ·{' '}
-                    {formatPostedAt(item.createdAt)}
-                  </p>
-                  {linked && <p>{linked}</p>}
-                  <p className={item.status === 'accepted' ? '' : 'muted'}>
-                    <strong>{STATUS_TEXT[item.status]}</strong>
-                  </p>
+                <article key={item.id} className="card request-card">
+                  <div className="card-head">
+                    <span className="avatar sm">{initials(helper?.displayName)}</span>
+                    <div>
+                      <strong>To {helper?.displayName || 'Student'}</strong>
+                      <p className="meta">
+                        Grade {helper?.grade ?? '—'} · sent {formatTimeAgo(item.createdAt)}
+                      </p>
+                    </div>
+                    <StatusPill status={item.status} />
+                  </div>
+                  <RequestDetails
+                    subject={item.subject}
+                    topic={requestTopic(item)}
+                    message={item.message}
+                  />
                 </article>
               )
             })}
@@ -252,5 +242,86 @@ export default function MatchesPage() {
         </>
       )}
     </section>
+  )
+}
+
+// The helper sees "Needs your answer" where the requester sees "Waiting for an answer".
+function StatusPill({ status, forHelper = false }) {
+  const text = forHelper && status === 'pending' ? 'Needs your answer' : STATUS_TEXT[status]
+  return <span className={`status-pill status-${status}`}>{text}</span>
+}
+
+function RequestDetails({ subject, topic, message }) {
+  return (
+    <div className="request-details">
+      <p className="request-topic">
+        <span className="badge">{subject}</span>
+        <strong>{topic || 'No topic given'}</strong>
+      </p>
+      {message && <p className="request-message">{message}</p>}
+    </div>
+  )
+}
+
+function RequestForm({ helper, subject, onSend, onError, onClose }) {
+  const [topic, setTopic] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event) {
+    event.preventDefault()
+    const cleanTopic = topic.trim()
+    if (!cleanTopic) return
+    setBusy(true)
+    try {
+      await onSend({
+        helperId: helper.id,
+        subject,
+        topic: cleanTopic,
+        message: message.trim() || null,
+        helperName: helper.displayName,
+      })
+      onClose()
+    } catch (err) {
+      onError(err.message || 'Could not send request')
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form className="request-form form" onSubmit={submit}>
+      <p className="request-form-title">
+        Ask {helper.displayName} for help with <strong>{subject}</strong>
+      </p>
+      <label>
+        Topic
+        <input
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+          maxLength={120}
+          placeholder="e.g. Solving quadratic equations"
+          autoFocus
+          required
+        />
+      </label>
+      <label>
+        What do you need? (optional)
+        <textarea
+          rows={3}
+          maxLength={1000}
+          value={message}
+          onChange={(event) => setMessage(event.target.value)}
+          placeholder="Say what you tried and where you got stuck."
+        />
+      </label>
+      <div className="form-actions">
+        <button type="button" className="text-btn cancel" onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <button type="submit" className="primary" disabled={busy || !topic.trim()}>
+          {busy ? 'Sending…' : 'Send request'}
+        </button>
+      </div>
+    </form>
   )
 }

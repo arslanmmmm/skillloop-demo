@@ -223,29 +223,8 @@ export function DataProvider({ children }) {
     )
   }, [])
 
-  const addQuestion = useCallback(
-    async ({ subject, body }) => {
-      const meId = profile?.id
-      if (!meId) throw new Error('Not signed in')
-      const { data, error: insertError } = await supabase
-        .from('questions')
-        .insert({
-          author_id: meId,
-          subject,
-          body,
-        })
-        .select('*')
-        .single()
-      if (insertError) throw insertError
-      const mapped = mapQuestion(data)
-      setQuestions((list) => [mapped, ...list])
-      return mapped
-    },
-    [profile?.id],
-  )
-
   const sendHelpRequest = useCallback(
-    async ({ helperId, subject, questionId = null, helperName }) => {
+    async ({ helperId, subject, topic, message = null, helperName }) => {
       const meId = profile?.id
       if (!meId) throw new Error('Not signed in')
       const { data, error: insertError } = await supabase
@@ -254,7 +233,8 @@ export function DataProvider({ children }) {
           requester_id: meId,
           helper_id: helperId,
           subject,
-          question_id: questionId,
+          topic,
+          message,
         })
         .select('*')
         .single()
@@ -308,7 +288,6 @@ export function DataProvider({ children }) {
       addExplanation,
       addFeedback,
       deleteFeedback,
-      addQuestion,
       sendHelpRequest,
       respondToHelpRequest,
       reputation: (userId, subject) =>
@@ -332,7 +311,6 @@ export function DataProvider({ children }) {
       addExplanation,
       addFeedback,
       deleteFeedback,
-      addQuestion,
       sendHelpRequest,
       respondToHelpRequest,
     ],

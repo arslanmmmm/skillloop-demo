@@ -399,6 +399,15 @@ h2 {
   resize: vertical;
 }
 
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 .chip-set {
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -938,4 +947,87 @@ h2 {
 .form-actions .cancel {
   margin: 0;
   color: var(--muted);
+}
+
+/* Help requests */
+.request-card .card-head > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-pending {
+  background: var(--star-soft);
+  color: #a15c00;
+}
+
+.status-accepted {
+  background: #e7f6ec;
+  color: #1c7a3d;
+}
+
+.status-declined {
+  background: var(--chip);
+  color: var(--muted);
+}
+
+.request-details {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.card .request-topic {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--ink);
+}
+
+.request-topic .badge {
+  margin-left: 0;
+}
+
+.card .request-message {
+  padding: 10px 12px;
+  border-left: 3px solid var(--line);
+  background: #fbfcfe;
+  border-radius: 0 10px 10px 0;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.trade-note {
+  margin-top: 10px !important;
+}
+
+.sent-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin-top: 14px;
+}
+
+.request-form {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+}
+
+.card .request-form-title {
+  font-size: 14px;
+  color: var(--ink);
 }
