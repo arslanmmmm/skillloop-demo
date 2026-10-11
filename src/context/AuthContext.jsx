@@ -98,16 +98,26 @@ export function AuthProvider({ children }) {
       })
       if (profileError) throw profileError
 
-      const { error: deleteError } = await supabase
-        .from('user_subjects')
-        .delete()
-        .eq('user_id', id)
-      if (deleteError) throw deleteError
-
+      // Add new rows before removing old ones, so a failure halfway leaves
+      // extra subjects rather than none.
       const rows = subjectRows(id, offers, needs)
       if (rows.length) {
-        const { error: insertError } = await supabase.from('user_subjects').insert(rows)
+        const { error: insertError } = await supabase
+          .from('user_subjects')
+          .upsert(rows, { onConflict: 'user_id,subject,kind', ignoreDuplicates: true })
         if (insertError) throw insertError
+      }
+
+      for (const [kind, keep] of [
+        ['offer', offers],
+        ['need', needs],
+      ]) {
+        let query = supabase.from('user_subjects').delete().eq('user_id', id).eq('kind', kind)
+        if (keep.length) {
+          query = query.not('subject', 'in', `(${keep.map((s) => `"${s}"`).join(',')})`)
+        }
+        const { error: deleteError } = await query
+        if (deleteError) throw deleteError
       }
 
       const mapped = await fetchProfile(id)

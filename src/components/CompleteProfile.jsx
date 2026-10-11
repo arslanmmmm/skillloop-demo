@@ -4,23 +4,33 @@ import { GRADES, SUBJECTS } from '../config/subjects.js'
 const STEPS = [
   { title: 'Your grade', hint: 'Step 1 of 3 — pick the grade you are in now.' },
   { title: 'What can you teach?', hint: 'Step 2 of 3 — pick subjects you can explain to a classmate.' },
-  { title: 'Where do you need help?', hint: 'Step 3 of 3 — pick subjects you want help with.' },
+  { title: 'Where do you need help?', hint: 'Step 3 of 3 — pick subjects you want help with. Subjects you teach are greyed out.' },
 ]
 
 export default function CompleteProfile({ onSave, existing }) {
   const [step, setStep] = useState(0)
-  const [grade, setGrade] = useState(existing?.grade || 10)
+  // No default grade, so nobody skips step 1 with a wrong grade.
+  const [grade, setGrade] = useState(existing?.grade ?? null)
   const [offers, setOffers] = useState(existing?.offers?.length ? existing.offers : [])
   const [needs, setNeeds] = useState(existing?.needs?.length ? existing.needs : [])
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
   function toggle(list, setList, subject) {
+    setMessage('')
     setList((current) =>
       current.includes(subject)
         ? current.filter((item) => item !== subject)
         : [...current, subject],
     )
+  }
+
+  // A subject you teach can't also be one you need help with.
+  function toggleOffer(subject) {
+    if (!offers.includes(subject)) {
+      setNeeds((current) => current.filter((item) => item !== subject))
+    }
+    toggle(offers, setOffers, subject)
   }
 
   function next(event) {
@@ -80,20 +90,24 @@ export default function CompleteProfile({ onSave, existing }) {
           ))}
         </div>
         {step === 0 && (
-          <label>
-            Grade
-            <select
-              value={grade}
-              onChange={(event) => setGrade(Number(event.target.value))}
-              required
-            >
-              {GRADES.map((item) => (
-                <option key={item} value={item}>
-                  Grade {item}
-                </option>
-              ))}
-            </select>
-          </label>
+          <fieldset className="chip-set grade-set">
+            <legend>Grade</legend>
+            {GRADES.map((item) => (
+              <label key={item} className="chip">
+                <input
+                  type="radio"
+                  name="grade"
+                  value={item}
+                  checked={grade === item}
+                  onChange={() => {
+                    setGrade(item)
+                    setMessage('')
+                  }}
+                />
+                {item}
+              </label>
+            ))}
+          </fieldset>
         )}
         {step === 1 && (
           <fieldset className="chip-set">
@@ -103,7 +117,7 @@ export default function CompleteProfile({ onSave, existing }) {
                 <input
                   type="checkbox"
                   checked={offers.includes(subject)}
-                  onChange={() => toggle(offers, setOffers, subject)}
+                  onChange={() => toggleOffer(subject)}
                 />
                 {subject}
               </label>
@@ -114,9 +128,14 @@ export default function CompleteProfile({ onSave, existing }) {
           <fieldset className="chip-set">
             <legend>Subjects I need help with</legend>
             {SUBJECTS.map((subject) => (
-              <label key={subject} className="chip">
+              <label
+                key={subject}
+                className="chip"
+                title={offers.includes(subject) ? 'You said you can teach this' : undefined}
+              >
                 <input
                   type="checkbox"
+                  disabled={offers.includes(subject)}
                   checked={needs.includes(subject)}
                   onChange={() => toggle(needs, setNeeds, subject)}
                 />

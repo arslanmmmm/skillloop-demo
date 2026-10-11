@@ -414,15 +414,69 @@ h2 {
   padding: 0 4px;
 }
 
-.chip {
-  display: flex;
+/* Toggle pills; `.form .chip` beats the grid layout of `.form label`. */
+.chip,
+.form .chip {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 500;
-  font-size: 13px;
-  background: var(--chip);
-  padding: 6px 10px;
+  font-weight: 600;
+  font-size: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 8px 14px;
   border-radius: 999px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip:hover {
+  border-color: #c9d0dc;
+}
+
+.chip:has(input:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip:has(input:checked)::before {
+  content: '✓';
+  font-weight: 700;
+}
+
+.chip:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.chip:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.grade-set {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+}
+
+.grade-set .chip {
+  justify-content: center;
+  padding: 8px 0;
+}
+
+@media (max-width: 480px) {
+  .grade-set {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .form-error {
