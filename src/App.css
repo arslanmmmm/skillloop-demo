@@ -918,3 +918,24 @@ h2 {
 .actions .primary {
   margin-top: 0;
 }
+
+.edit-profile-btn {
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.form-actions .primary {
+  margin-top: 0;
+}
+
+.form-actions .cancel {
+  margin: 0;
+  color: var(--muted);
+}

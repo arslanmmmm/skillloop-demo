@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { GRADES, SUBJECTS } from '../config/subjects.js'
+import { toggleItem, toggleOffer } from '../lib/helpers.js'
+import { GradePicker, SubjectPicker } from './ProfilePickers.jsx'
 
 const STEPS = [
   { title: 'Your grade', hint: 'Step 1 of 3 — pick the grade you are in now.' },
@@ -16,21 +17,16 @@ export default function CompleteProfile({ onSave, existing }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
-  function toggle(list, setList, subject) {
+  function pickOffer(subject) {
     setMessage('')
-    setList((current) =>
-      current.includes(subject)
-        ? current.filter((item) => item !== subject)
-        : [...current, subject],
-    )
+    const next = toggleOffer(offers, needs, subject)
+    setOffers(next.offers)
+    setNeeds(next.needs)
   }
 
-  // A subject you teach can't also be one you need help with.
-  function toggleOffer(subject) {
-    if (!offers.includes(subject)) {
-      setNeeds((current) => current.filter((item) => item !== subject))
-    }
-    toggle(offers, setOffers, subject)
+  function pickNeed(subject) {
+    setMessage('')
+    setNeeds(toggleItem(needs, subject))
   }
 
   function next(event) {
@@ -90,59 +86,25 @@ export default function CompleteProfile({ onSave, existing }) {
           ))}
         </div>
         {step === 0 && (
-          <fieldset className="chip-set grade-set">
-            <legend>Grade</legend>
-            {GRADES.map((item) => (
-              <label key={item} className="chip">
-                <input
-                  type="radio"
-                  name="grade"
-                  value={item}
-                  checked={grade === item}
-                  onChange={() => {
-                    setGrade(item)
-                    setMessage('')
-                  }}
-                />
-                {item}
-              </label>
-            ))}
-          </fieldset>
+          <GradePicker
+            value={grade}
+            onChange={(item) => {
+              setGrade(item)
+              setMessage('')
+            }}
+          />
         )}
         {step === 1 && (
-          <fieldset className="chip-set">
-            <legend>Subjects I can teach</legend>
-            {SUBJECTS.map((subject) => (
-              <label key={subject} className="chip">
-                <input
-                  type="checkbox"
-                  checked={offers.includes(subject)}
-                  onChange={() => toggleOffer(subject)}
-                />
-                {subject}
-              </label>
-            ))}
-          </fieldset>
+          <SubjectPicker legend="Subjects I can teach" selected={offers} onToggle={pickOffer} />
         )}
         {step === 2 && (
-          <fieldset className="chip-set">
-            <legend>Subjects I need help with</legend>
-            {SUBJECTS.map((subject) => (
-              <label
-                key={subject}
-                className="chip"
-                title={offers.includes(subject) ? 'You said you can teach this' : undefined}
-              >
-                <input
-                  type="checkbox"
-                  disabled={offers.includes(subject)}
-                  checked={needs.includes(subject)}
-                  onChange={() => toggle(needs, setNeeds, subject)}
-                />
-                {subject}
-              </label>
-            ))}
-          </fieldset>
+          <SubjectPicker
+            legend="Subjects I need help with"
+            selected={needs}
+            onToggle={pickNeed}
+            locked={offers}
+            lockedTitle="You said you can teach this"
+          />
         )}
         {message && <p className="form-error">{message}</p>}
         <button type="submit" className="primary" disabled={busy}>

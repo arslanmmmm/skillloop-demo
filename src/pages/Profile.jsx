@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
+import EditProfile from '../components/EditProfile.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
 import { initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
   const { explanations, votes, loading, error, reputation } = useAppData()
+  const [editing, setEditing] = useState(false)
   const mine = explanations.filter((item) => item.authorId === profile.id)
 
   return (
@@ -21,50 +24,59 @@ export default function ProfilePage() {
             Credibility is computed from other students’ votes, not a self-score.
           </p>
         </div>
+        {!editing && (
+          <button type="button" className="react edit-profile-btn" onClick={() => setEditing(true)}>
+            Edit profile
+          </button>
+        )}
       </div>
-      <div className="profile-grid">
-        <div className="card">
-          <h3>Can teach</h3>
-          <p className="hint">Score = votes on their explanations in that subject.</p>
-          <ul className="plain">
-            {profile.offers.length === 0 ? (
-              <li>
-                <span className="muted">None yet</span>
-              </li>
-            ) : (
-              profile.offers.map((subj) => {
-                const score = reputation(profile.id, subj)
-                return (
-                  <li key={subj}>
-                    <span>
-                      {subj}{' '}
-                      <ReputationBadge score={score} subject={subj} />
-                    </span>
-                    <strong className="score">{score}</strong>
-                  </li>
-                )
-              })
-            )}
-          </ul>
-        </div>
-        <div className="card">
-          <h3>Needs help with</h3>
-          <p className="hint">No score — this is a request, not a claim.</p>
-          <ul className="plain">
-            {profile.needs.length === 0 ? (
-              <li>
-                <span className="muted">None yet</span>
-              </li>
-            ) : (
-              profile.needs.map((subj) => (
-                <li key={subj}>
-                  <span>{subj}</span>
+      {editing ? (
+        <EditProfile onDone={() => setEditing(false)} />
+      ) : (
+        <div className="profile-grid">
+          <div className="card">
+            <h3>Can teach</h3>
+            <p className="hint">Score = votes on their explanations in that subject.</p>
+            <ul className="plain">
+              {profile.offers.length === 0 ? (
+                <li>
+                  <span className="muted">None yet</span>
                 </li>
-              ))
-            )}
-          </ul>
+              ) : (
+                profile.offers.map((subj) => {
+                  const score = reputation(profile.id, subj)
+                  return (
+                    <li key={subj}>
+                      <span>
+                        {subj}{' '}
+                        <ReputationBadge score={score} subject={subj} />
+                      </span>
+                      <strong className="score">{score}</strong>
+                    </li>
+                  )
+                })
+              )}
+            </ul>
+          </div>
+          <div className="card">
+            <h3>Needs help with</h3>
+            <p className="hint">No score — this is a request, not a claim.</p>
+            <ul className="plain">
+              {profile.needs.length === 0 ? (
+                <li>
+                  <span className="muted">None yet</span>
+                </li>
+              ) : (
+                profile.needs.map((subj) => (
+                  <li key={subj}>
+                    <span>{subj}</span>
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
         </div>
-      </div>
+      )}
       <h3 className="subhead">Explanations by {profile.displayName}</h3>
       {loading ? (
         <p className="hint">Loading…</p>

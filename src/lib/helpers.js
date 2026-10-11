@@ -154,6 +154,26 @@ export function formatTimeAgo(iso) {
   return formatPostedAt(iso)
 }
 
+export function toggleItem(list, item) {
+  return list.includes(item) ? list.filter((x) => x !== item) : [...list, item]
+}
+
+// A subject you teach can't also be one you need help with, so adding it to
+// offers removes it from needs.
+export function toggleOffer(offers, needs, subject) {
+  const nextOffers = toggleItem(offers, subject)
+  const nextNeeds = nextOffers.includes(subject) ? needs.filter((x) => x !== subject) : needs
+  return { offers: nextOffers, needs: nextNeeds }
+}
+
+// Same rules for onboarding and the profile editor. Returns an error or ''.
+export function validateProfileChoices({ grade, offers, needs }) {
+  if (!grade) return 'Pick your grade.'
+  if (offers.length === 0) return 'Pick at least one subject you can teach.'
+  if (needs.length === 0) return 'Pick at least one subject you need help with.'
+  return ''
+}
+
 export function subjectRows(userId, offers, needs) {
   return [
     ...offers.map((subject) => ({ user_id: userId, subject, kind: 'offer' })),
