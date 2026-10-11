@@ -1,33 +1,19 @@
--- SkillLoop Phase 1 + 2 schema
+-- SkillLoop schema (Phase 1 + 2)
 -- Paste and run this entire file in the Supabase SQL Editor.
--- Safe to re-run: it drops app objects first (this wipes SkillLoop data).
--- If Phase 1 is already live and you want to keep data, run phase2.sql instead.
+-- Safe to re-run and keeps data: tables and columns are created only if missing,
+-- and functions, triggers, policies and constraints are replaced in place.
+-- It upgrades a live Phase 1 database as well as setting up a new project.
 
 create extension if not exists "pgcrypto";
 
-drop trigger if exists on_auth_user_created on auth.users;
-
-drop view if exists public.subject_reputation cascade;
-drop table if exists public.help_requests cascade;
-drop table if exists public.questions cascade;
-drop table if exists public.feedback cascade;
-drop table if exists public.votes cascade;
-drop table if exists public.user_subjects cascade;
-drop table if exists public.explanations cascade;
+-- Leftover from the click-through demo; never used by the Supabase app.
 drop table if exists public.reactions cascade;
-drop table if exists public.profiles cascade;
-
-drop function if exists public.handle_new_user();
-drop function if exists public.prevent_self_vote();
-drop function if exists public.protect_profile_role();
-drop function if exists public.enforce_feedback_rules();
-drop function if exists public.protect_help_request();
 
 -- Subjects students asked for in the survey (keep in sync with src/config/subjects.js).
 -- Later phases can add columns (e.g. video_url, hidden_at, verified_at) and
 -- tables (reports) without changing these core keys.
 
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null check (char_length(trim(display_name)) between 1 and 80),
   grade smallint check (grade is null or grade between 7 and 12),
@@ -35,7 +21,7 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
-create table public.user_subjects (
+create table if not exists public.user_subjects (
   user_id uuid not null references public.profiles (id) on delete cascade,
   subject text not null check (
     subject in (
@@ -53,7 +39,7 @@ create table public.user_subjects (
   primary key (user_id, subject, kind)
 );
 
-create table public.explanations (
+create table if not exists public.explanations (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles (id) on delete cascade,
   subject text not null check (
@@ -73,7 +59,7 @@ create table public.explanations (
   created_at timestamptz not null default now()
 );
 
-create table public.votes (
+create table if not exists public.votes (
   id uuid primary key default gen_random_uuid(),
   explanation_id uuid not null references public.explanations (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
@@ -82,21 +68,28 @@ create table public.votes (
 );
 
 -- Top-level rows are a comment + 1–5 clarity rating. Replies have parent_id and no rating.
-create table public.feedback (
+create table if not exists public.feedback (
   id uuid primary key default gen_random_uuid(),
   explanation_id uuid not null references public.explanations (id) on delete cascade,
   author_id uuid not null references public.profiles (id) on delete cascade,
-  parent_id uuid references public.feedback (id) on delete cascade,
   body text not null check (char_length(trim(body)) between 1 and 500),
-  clarity_rating smallint check (clarity_rating is null or clarity_rating between 1 and 5),
-  created_at timestamptz not null default now(),
-  constraint feedback_review_or_reply check (
-    (parent_id is null and clarity_rating between 1 and 5)
-    or (parent_id is not null and clarity_rating is null)
-  )
+  clarity_rating smallint,
+  created_at timestamptz not null default now()
 );
 
-create table public.questions (
+-- Phase 1 created feedback without replies and with a required rating.
+alter table public.feedback
+  add column if not exists parent_id uuid references public.feedback (id) on delete cascade;
+alter table public.feedback alter column clarity_rating drop not null;
+alter table public.feedback drop constraint if exists feedback_clarity_rating_check;
+alter table public.feedback drop constraint if exists feedback_review_or_reply;
+alter table public.feedback
+  add constraint feedback_review_or_reply check (
+    (parent_id is null and clarity_rating between 1 and 5)
+    or (parent_id is not null and clarity_rating is null)
+  );
+
+create table if not exists public.questions (
   id uuid primary key default gen_random_uuid(),
   author_id uuid not null references public.profiles (id) on delete cascade,
   subject text not null check (
@@ -115,7 +108,7 @@ create table public.questions (
   created_at timestamptz not null default now()
 );
 
-create table public.help_requests (
+create table if not exists public.help_requests (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references public.profiles (id) on delete cascade,
   helper_id uuid not null references public.profiles (id) on delete cascade,
@@ -137,26 +130,26 @@ create table public.help_requests (
   constraint help_requests_not_self check (requester_id <> helper_id)
 );
 
-create index explanations_created_at_idx on public.explanations (created_at desc);
-create index explanations_author_idx on public.explanations (author_id);
-create index votes_explanation_idx on public.votes (explanation_id);
-create index votes_user_idx on public.votes (user_id);
-create index feedback_explanation_idx on public.feedback (explanation_id);
-create index user_subjects_user_idx on public.user_subjects (user_id);
-create index questions_created_at_idx on public.questions (created_at desc);
-create index help_requests_helper_idx on public.help_requests (helper_id, status);
-create index help_requests_requester_idx on public.help_requests (requester_id);
+create index if not exists explanations_created_at_idx on public.explanations (created_at desc);
+create index if not exists explanations_author_idx on public.explanations (author_id);
+create index if not exists votes_explanation_idx on public.votes (explanation_id);
+create index if not exists votes_user_idx on public.votes (user_id);
+create index if not exists feedback_explanation_idx on public.feedback (explanation_id);
+create index if not exists user_subjects_user_idx on public.user_subjects (user_id);
+create index if not exists questions_created_at_idx on public.questions (created_at desc);
+create index if not exists help_requests_helper_idx on public.help_requests (helper_id, status);
+create index if not exists help_requests_requester_idx on public.help_requests (requester_id);
 
-create unique index feedback_one_review
+create unique index if not exists feedback_one_review
   on public.feedback (explanation_id, author_id)
   where parent_id is null;
 
-create unique index help_requests_one_pending
+create unique index if not exists help_requests_one_pending
   on public.help_requests (requester_id, helper_id, subject)
   where status = 'pending';
 
 -- Reputation = votes from other students on that author’s explanations in a subject.
-create view public.subject_reputation
+create or replace view public.subject_reputation
 with (security_invoker = true) as
 select
   e.author_id as user_id,
@@ -184,10 +177,13 @@ begin
 end;
 $$;
 
+drop trigger if exists votes_no_self_vote on public.votes;
 create trigger votes_no_self_vote
   before insert on public.votes
   for each row execute function public.prevent_self_vote();
 
+-- Runs on insert and update so an edit cannot turn a reply into a self-review
+-- or move a review onto a different explanation.
 create or replace function public.enforce_feedback_rules()
 returns trigger
 language plpgsql
@@ -196,6 +192,16 @@ declare
   explanation_author uuid;
   parent_explanation uuid;
 begin
+  if tg_op = 'UPDATE' then
+    if new.explanation_id <> old.explanation_id
+      or new.author_id <> old.author_id
+      or new.parent_id is distinct from old.parent_id then
+      raise exception 'Only the comment text and rating can be edited'
+        using errcode = 'P0001';
+    end if;
+    return new;
+  end if;
+
   select e.author_id into explanation_author
   from public.explanations e
   where e.id = new.explanation_id;
@@ -229,8 +235,9 @@ begin
 end;
 $$;
 
+drop trigger if exists feedback_rules on public.feedback;
 create trigger feedback_rules
-  before insert on public.feedback
+  before insert or update on public.feedback
   for each row execute function public.enforce_feedback_rules();
 
 create or replace function public.protect_help_request()
@@ -265,6 +272,7 @@ begin
 end;
 $$;
 
+drop trigger if exists help_requests_protect on public.help_requests;
 create trigger help_requests_protect
   before insert or update on public.help_requests
   for each row execute function public.protect_help_request();
@@ -285,6 +293,7 @@ begin
 end;
 $$;
 
+drop trigger if exists profiles_protect_role on public.profiles;
 create trigger profiles_protect_role
   before insert or update on public.profiles
   for each row execute function public.protect_profile_role();
@@ -297,63 +306,75 @@ alter table public.feedback enable row level security;
 alter table public.questions enable row level security;
 alter table public.help_requests enable row level security;
 
+drop policy if exists "profiles select authenticated" on public.profiles;
 create policy "profiles select authenticated"
   on public.profiles for select
   to authenticated
   using (true);
 
+drop policy if exists "profiles insert own student" on public.profiles;
 create policy "profiles insert own student"
   on public.profiles for insert
   to authenticated
   with check (id = auth.uid() and role = 'student');
 
+drop policy if exists "profiles update own" on public.profiles;
 create policy "profiles update own"
   on public.profiles for update
   to authenticated
   using (id = auth.uid())
   with check (id = auth.uid());
 
+drop policy if exists "user_subjects select authenticated" on public.user_subjects;
 create policy "user_subjects select authenticated"
   on public.user_subjects for select
   to authenticated
   using (true);
 
+drop policy if exists "user_subjects insert own" on public.user_subjects;
 create policy "user_subjects insert own"
   on public.user_subjects for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "user_subjects delete own" on public.user_subjects;
 create policy "user_subjects delete own"
   on public.user_subjects for delete
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "explanations select authenticated" on public.explanations;
 create policy "explanations select authenticated"
   on public.explanations for select
   to authenticated
   using (true);
 
+drop policy if exists "explanations insert own" on public.explanations;
 create policy "explanations insert own"
   on public.explanations for insert
   to authenticated
   with check (author_id = auth.uid());
 
+drop policy if exists "explanations update own" on public.explanations;
 create policy "explanations update own"
   on public.explanations for update
   to authenticated
   using (author_id = auth.uid())
   with check (author_id = auth.uid());
 
+drop policy if exists "explanations delete own" on public.explanations;
 create policy "explanations delete own"
   on public.explanations for delete
   to authenticated
   using (author_id = auth.uid());
 
+drop policy if exists "votes select authenticated" on public.votes;
 create policy "votes select authenticated"
   on public.votes for select
   to authenticated
   using (true);
 
+drop policy if exists "votes insert own not self" on public.votes;
 create policy "votes insert own not self"
   on public.votes for insert
   to authenticated
@@ -367,16 +388,19 @@ create policy "votes insert own not self"
     )
   );
 
+drop policy if exists "votes delete own" on public.votes;
 create policy "votes delete own"
   on public.votes for delete
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "feedback select authenticated" on public.feedback;
 create policy "feedback select authenticated"
   on public.feedback for select
   to authenticated
   using (true);
 
+drop policy if exists "feedback insert own" on public.feedback;
 create policy "feedback insert own"
   on public.feedback for insert
   to authenticated
@@ -393,42 +417,50 @@ create policy "feedback insert own"
     )
   );
 
+drop policy if exists "feedback update own" on public.feedback;
 create policy "feedback update own"
   on public.feedback for update
   to authenticated
   using (author_id = auth.uid())
   with check (author_id = auth.uid());
 
+drop policy if exists "feedback delete own" on public.feedback;
 create policy "feedback delete own"
   on public.feedback for delete
   to authenticated
   using (author_id = auth.uid());
 
+drop policy if exists "questions select authenticated" on public.questions;
 create policy "questions select authenticated"
   on public.questions for select
   to authenticated
   using (true);
 
+drop policy if exists "questions insert own" on public.questions;
 create policy "questions insert own"
   on public.questions for insert
   to authenticated
   with check (author_id = auth.uid());
 
+drop policy if exists "questions delete own" on public.questions;
 create policy "questions delete own"
   on public.questions for delete
   to authenticated
   using (author_id = auth.uid());
 
+drop policy if exists "help_requests select involved" on public.help_requests;
 create policy "help_requests select involved"
   on public.help_requests for select
   to authenticated
   using (requester_id = auth.uid() or helper_id = auth.uid());
 
+drop policy if exists "help_requests insert own" on public.help_requests;
 create policy "help_requests insert own"
   on public.help_requests for insert
   to authenticated
   with check (requester_id = auth.uid() and helper_id <> auth.uid());
 
+drop policy if exists "help_requests helper update" on public.help_requests;
 create policy "help_requests helper update"
   on public.help_requests for update
   to authenticated
@@ -495,6 +527,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();

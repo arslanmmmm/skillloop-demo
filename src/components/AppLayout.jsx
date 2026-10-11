@@ -86,8 +86,8 @@ export default function AppLayout() {
       <main className="app">
         {error && (
           <p className="banner">
-            Could not load data. Run <code>supabase/phase2.sql</code> (or the full
-            schema) in the SQL Editor.{' '}
+            Could not load data. Run <code>supabase/schema.sql</code> in the SQL
+            Editor (safe to re-run; it keeps your data).{' '}
             <button type="button" className="text-btn inline" onClick={loadAll}>
               Retry
             </button>{' '}

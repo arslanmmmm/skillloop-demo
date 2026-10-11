@@ -76,13 +76,14 @@ export default function FeedbackThread({ explanationId, authorId }) {
 
 function ReviewForm({ explanationId, onSave, onError }) {
   const [body, setBody] = useState('')
-  const [rating, setRating] = useState(4)
+  // No default: a pre-selected rating nudges readers toward that score.
+  const [rating, setRating] = useState(null)
   const [busy, setBusy] = useState(false)
 
   async function submit(event) {
     event.preventDefault()
     const text = body.trim()
-    if (!text) return
+    if (!text || !rating) return
     setBusy(true)
     try {
       await onSave({
@@ -91,6 +92,7 @@ function ReviewForm({ explanationId, onSave, onError }) {
         clarityRating: Number(rating),
       })
       setBody('')
+      setRating(null)
     } catch (err) {
       onError(err.message || 'Could not save review')
     } finally {
@@ -125,8 +127,8 @@ function ReviewForm({ explanationId, onSave, onError }) {
           placeholder="What helped, or what is still confusing?"
         />
       </label>
-      <button type="submit" className="primary" disabled={busy || !body.trim()}>
-        {busy ? 'Saving…' : 'Post review'}
+      <button type="submit" className="primary" disabled={busy || !body.trim() || !rating}>
+        {busy ? 'Saving…' : rating ? 'Post review' : 'Pick a clarity rating'}
       </button>
     </form>
   )

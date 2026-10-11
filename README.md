@@ -5,7 +5,7 @@ Peer-learning app for grades 7–12. Students post short text explanations. Repu
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL Editor, paste and run [`supabase/schema.sql`](supabase/schema.sql). If Phase 1 is already live and you want to keep data, run [`supabase/phase2.sql`](supabase/phase2.sql) instead.
+2. In the SQL Editor, paste and run [`supabase/schema.sql`](supabase/schema.sql). It is safe to re-run and keeps existing data, so run it again after pulling schema changes (it also upgrades a Phase 1 database).
 3. Authentication → Providers → Email → turn **off** “Confirm email” so sign-up returns a session immediately.
 4. Copy env values:
 
