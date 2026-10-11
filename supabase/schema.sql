@@ -250,6 +250,18 @@ begin
       using errcode = 'P0001';
   end if;
 
+  -- The attached question must be the requester's own and in the same subject.
+  if tg_op = 'INSERT' and new.question_id is not null and not exists (
+    select 1
+    from public.questions q
+    where q.id = new.question_id
+      and q.author_id = new.requester_id
+      and q.subject = new.subject
+  ) then
+    raise exception 'The question must be yours and in the same subject'
+      using errcode = 'P0001';
+  end if;
+
   if tg_op = 'UPDATE' then
     if new.requester_id <> old.requester_id
       or new.helper_id <> old.helper_id

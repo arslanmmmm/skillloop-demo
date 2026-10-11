@@ -106,45 +106,30 @@ export function getReputation(reputationByUser, userId, subject) {
   return reputationByUser[userId]?.[subject] ?? 0
 }
 
-export function findMatches(users, reputationByUser, me) {
-  if (!me) return []
+// Everyone who teaches `subject`, ranked by their reputation in it, then by
+// how close their grade is to mine. `youTeach` marks a two-way trade.
+export function findHelpers(users, reputationByUser, me, subject) {
+  if (!me || !subject) return []
   return users
-    .filter((other) => other.id !== me.id)
-    .map((other) => {
-      const theyTeachWhatINeed = other.offers.filter((subject) =>
-        me.needs.includes(subject),
-      )
-      const iTeachWhatTheyNeed = me.offers.filter((subject) =>
-        other.needs.includes(subject),
-      )
-      if (!theyTeachWhatINeed.length || !iTeachWhatTheyNeed.length) return null
-      const theyTeach = theyTeachWhatINeed.map((subject) => ({
-        subject,
-        score: getReputation(reputationByUser, other.id, subject),
-      }))
-      return {
-        user: other,
-        theyTeach,
-        youTeach: iTeachWhatTheyNeed,
-        helperScore: Math.max(0, ...theyTeach.map((row) => row.score)),
-      }
-    })
-    .filter(Boolean)
-    .sort((a, b) => compareHelpers(a, b, me))
+    .filter((other) => other.id !== me.id && other.offers.includes(subject))
+    .map((other) => ({
+      user: other,
+      score: getReputation(reputationByUser, other.id, subject),
+      gradeGap: gradeGap(me.grade, other.grade),
+      youTeach: me.offers.filter((item) => other.needs.includes(item)),
+    }))
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.gradeGap - b.gradeGap ||
+        (b.user.grade ?? 0) - (a.user.grade ?? 0) ||
+        a.user.displayName.localeCompare(b.user.displayName),
+    )
 }
 
-function compareHelpers(a, b, me) {
-  if (b.helperScore !== a.helperScore) return b.helperScore - a.helperScore
-  const myGrade = me.grade ?? 0
-  const aGrade = a.user.grade ?? 0
-  const bGrade = b.user.grade ?? 0
-  const aAtOrAbove = aGrade >= myGrade ? 1 : 0
-  const bAtOrAbove = bGrade >= myGrade ? 1 : 0
-  if (bAtOrAbove !== aAtOrAbove) return bAtOrAbove - aAtOrAbove
-  const aProx = Math.abs(aGrade - myGrade)
-  const bProx = Math.abs(bGrade - myGrade)
-  if (aProx !== bProx) return aProx - bProx
-  return bGrade - aGrade
+function gradeGap(myGrade, theirGrade) {
+  if (myGrade == null || theirGrade == null) return Infinity
+  return Math.abs(theirGrade - myGrade)
 }
 
 export function formatPostedAt(iso) {

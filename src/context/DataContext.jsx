@@ -10,7 +10,6 @@ import {
 import { supabase } from '../lib/supabaseClient.js'
 import {
   buildReputationMap,
-  findMatches,
   getReputation,
   mapExplanation,
   mapFeedback,
@@ -270,11 +269,6 @@ export function DataProvider({ children }) {
     [showToast],
   )
 
-  const matches = useMemo(
-    () => findMatches(users, reputationByUser, profile),
-    [users, reputationByUser, profile],
-  )
-
   const userById = useMemo(
     () => Object.fromEntries(users.map((item) => [item.id, item])),
     [users],
@@ -291,7 +285,6 @@ export function DataProvider({ children }) {
       loading,
       error,
       toast,
-      matches,
       userById,
       reputationByUser,
       showToast,
@@ -315,7 +308,6 @@ export function DataProvider({ children }) {
       loading,
       error,
       toast,
-      matches,
       userById,
       reputationByUser,
       showToast,

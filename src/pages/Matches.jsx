@@ -4,12 +4,19 @@ import { reputationLabel } from '../config/reputation.js'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { initials } from '../lib/helpers.js'
+import { findHelpers, formatPostedAt, initials } from '../lib/helpers.js'
+
+const STATUS_TEXT = {
+  pending: 'Waiting for an answer',
+  accepted: 'Accepted',
+  declined: 'Declined',
+}
 
 export default function MatchesPage() {
   const { profile } = useAuth()
   const {
-    matches,
+    users,
+    reputationByUser,
     questions,
     helpRequests,
     userById,
@@ -18,17 +25,19 @@ export default function MatchesPage() {
     addQuestion,
     sendHelpRequest,
     respondToHelpRequest,
-    reputation,
     showToast,
   } = useAppData()
 
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
   const [question, setQuestion] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [formError, setFormError] = useState('')
-  const [lastQuestionId, setLastQuestionId] = useState(null)
+  // The last question saved, so sending it to several helpers stores it once.
+  const [posted, setPosted] = useState(null)
   const [sendingId, setSendingId] = useState('')
 
+  const helpers = useMemo(
+    () => findHelpers(users, reputationByUser, profile, subject),
+    [users, reputationByUser, profile, subject],
+  )
   const incoming = useMemo(
     () => helpRequests.filter((item) => item.helperId === profile.id),
     [helpRequests, profile.id],
@@ -37,42 +46,32 @@ export default function MatchesPage() {
     () => helpRequests.filter((item) => item.requesterId === profile.id),
     [helpRequests, profile.id],
   )
-  const myQuestions = useMemo(
-    () => questions.filter((item) => item.authorId === profile.id).slice(0, 5),
-    [questions, profile.id],
-  )
 
-  async function submitQuestion(event) {
-    event.preventDefault()
-    const body = question.trim()
-    if (!body) {
-      setFormError('Write the question you need help with.')
-      return
-    }
-    setFormError('')
-    setBusy(true)
-    try {
-      const saved = await addQuestion({ subject, body })
-      setLastQuestionId(saved.id)
-      setQuestion('')
-      showToast('Question posted. Send a request to a suggested helper below.')
-    } catch (err) {
-      setFormError(err.message)
-    } finally {
-      setBusy(false)
-    }
-  }
+  // Subjects you said you need help with come first; any subject can be picked.
+  const subjectOptions = [
+    ...profile.needs,
+    ...SUBJECTS.filter((item) => !profile.needs.includes(item)),
+  ]
 
-  async function requestHelp(match) {
-    const top = [...match.theyTeach].sort((a, b) => b.score - a.score)[0]
-    if (!top) return
-    setSendingId(match.user.id)
+  async function requestHelp(helper) {
+    setSendingId(helper.id)
     try {
+      const body = question.trim()
+      let questionId = null
+      if (body) {
+        if (posted?.subject === subject && posted.body === body) {
+          questionId = posted.id
+        } else {
+          const saved = await addQuestion({ subject, body })
+          setPosted({ id: saved.id, subject, body })
+          questionId = saved.id
+        }
+      }
       await sendHelpRequest({
-        helperId: match.user.id,
-        subject: top.subject,
-        questionId: lastQuestionId,
-        helperName: match.user.displayName,
+        helperId: helper.id,
+        subject,
+        questionId,
+        helperName: helper.displayName,
       })
     } catch (err) {
       showToast(err.message || 'Could not send request')
@@ -81,9 +80,10 @@ export default function MatchesPage() {
     }
   }
 
-  function requestStatus(helperId, subjectName) {
+  // helpRequests is newest first, so this is the latest request to that helper.
+  function latestRequest(helperId) {
     return outgoing.find(
-      (item) => item.helperId === helperId && item.subject === subjectName,
+      (item) => item.helperId === helperId && item.subject === subject,
     )
   }
 
@@ -95,21 +95,24 @@ export default function MatchesPage() {
     }
   }
 
+  function questionText(questionId) {
+    return questions.find((item) => item.id === questionId)?.body
+  }
+
   return (
     <section>
       <h2>Ask for help</h2>
       <p className="hint">
-        Post a question, then send a request to a classmate who can teach that
-        subject. Matches still need a two-way trade (they teach what you need,
-        you teach what they need). Ranked by their votes, then closer / higher
-        grade.
+        Pick a subject to see everyone who teaches it, ranked by helpful votes in
+        that subject, then by how close their grade is to yours. Add your
+        question so the helper knows what you are stuck on.
       </p>
 
-      <form className="card form" onSubmit={submitQuestion}>
+      <div className="card form">
         <label>
           Subject
           <select value={subject} onChange={(event) => setSubject(event.target.value)}>
-            {(profile.needs.length ? profile.needs : SUBJECTS).map((item) => (
+            {subjectOptions.map((item) => (
               <option key={item} value={item}>
                 {item}
               </option>
@@ -117,7 +120,7 @@ export default function MatchesPage() {
           </select>
         </label>
         <label>
-          Question
+          Your question (optional)
           <textarea
             rows={3}
             maxLength={1000}
@@ -126,26 +129,22 @@ export default function MatchesPage() {
             placeholder="What are you stuck on?"
           />
         </label>
-        {formError && <p className="form-error">{formError}</p>}
-        <button type="submit" className="primary" disabled={busy}>
-          {busy ? 'Posting…' : 'Post question'}
-        </button>
-      </form>
+      </div>
 
       {incoming.length > 0 && (
         <>
-          <h3 className="subhead">Incoming requests</h3>
+          <h3 className="subhead">Requests for you</h3>
           <div className="stack">
             {incoming.map((item) => {
               const who = userById[item.requesterId]
-              const linked = questions.find((q) => q.id === item.questionId)
+              const linked = questionText(item.questionId)
               return (
                 <article key={item.id} className="card">
                   <p className="meta">
-                    {who?.displayName || 'Student'} · Grade {who?.grade ?? '—'} · {item.subject}{' '}
-                    · {item.status}
+                    {who?.displayName || 'Student'} · Grade {who?.grade ?? '—'} ·{' '}
+                    {item.subject} · {formatPostedAt(item.createdAt)}
                   </p>
-                  {linked && <p>{linked.body}</p>}
+                  {linked && <p>{linked}</p>}
                   {item.status === 'pending' ? (
                     <div className="actions">
                       <button
@@ -173,89 +172,84 @@ export default function MatchesPage() {
         </>
       )}
 
-      {myQuestions.length > 0 && (
-        <>
-          <h3 className="subhead">Your recent questions</h3>
-          <div className="stack">
-            {myQuestions.map((item) => (
-              <article key={item.id} className="card">
-                <p className="meta">{item.subject}</p>
-                <p>{item.body}</p>
-              </article>
-            ))}
-          </div>
-        </>
-      )}
-
-      <h3 className="subhead">Suggested helpers</h3>
+      <h3 className="subhead">Who can help with {subject}</h3>
       {loading ? (
         <FeedSkeleton />
       ) : error ? (
-        <p className="empty">Could not load matches.</p>
-      ) : matches.length === 0 ? (
+        <p className="empty">Could not load helpers.</p>
+      ) : helpers.length === 0 ? (
         <p className="empty">
-          No complementary trades yet. Ask a classmate to sign up with overlapping
-          subjects (they teach what you need, and you teach what they need).
+          Nobody teaches {subject} yet. Ask a classmate to sign up and pick it as
+          a subject they can teach.
         </p>
       ) : (
         <div className="stack">
-          {matches.map((match) => {
-            const top = [...match.theyTeach].sort((a, b) => b.score - a.score)[0]
-            const existing = top ? requestStatus(match.user.id, top.subject) : null
-            const label = reputationLabel(top?.score ?? 0)
+          {helpers.map(({ user, score, youTeach }) => {
+            const existing = latestRequest(user.id)
+            const sending = sendingId === user.id
             return (
-              <article key={match.user.id} className="card">
+              <article key={user.id} className="card">
                 <div className="card-head">
-                  <span className="avatar">{initials(match.user.displayName)}</span>
+                  <span className="avatar">{initials(user.displayName)}</span>
                   <div>
                     <strong>
-                      {match.user.displayName} <span className="badge">{label}</span>
+                      {user.displayName}{' '}
+                      <span className="badge">{reputationLabel(score)}</span>
+                      {youTeach.length > 0 && <span className="badge">Trade</span>}
                     </strong>
                     <p className="meta">
-                      Grade {match.user.grade ?? '—'} · complementary offer / need
+                      Grade {user.grade ?? '—'} · {score} helpful{' '}
+                      {score === 1 ? 'vote' : 'votes'} in {subject}
                     </p>
                   </div>
                 </div>
-                <ul className="plain">
-                  {match.theyTeach.map((row) => (
-                    <li key={row.subject}>
-                      <span>
-                        They can teach you <strong>{row.subject}</strong>
-                      </span>
-                      <strong className="score">{row.score}</strong>
-                    </li>
-                  ))}
-                  {match.youTeach.map((subj) => (
-                    <li key={subj}>
-                      <span>
-                        You can teach them <strong>{subj}</strong>
-                      </span>
-                      <span className="muted">
-                        your score: {reputation(profile.id, subj)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {youTeach.length > 0 && (
+                  <p className="muted">
+                    You can teach them back: {youTeach.join(', ')}
+                  </p>
+                )}
                 <button
                   type="button"
                   className="primary"
-                  disabled={Boolean(existing) || sendingId === match.user.id}
-                  onClick={() => requestHelp(match)}
+                  disabled={Boolean(existing) || sending}
+                  onClick={() => requestHelp(user)}
                 >
-                  {existing
-                    ? existing.status === 'pending'
-                      ? 'Request sent'
-                      : existing.status === 'accepted'
-                        ? 'Accepted'
-                        : 'Declined'
-                    : sendingId === match.user.id
-                      ? 'Sending…'
+                  {sending
+                    ? 'Sending…'
+                    : existing
+                      ? existing.status === 'pending'
+                        ? 'Request sent'
+                        : STATUS_TEXT[existing.status]
                       : 'Send request'}
                 </button>
               </article>
             )
           })}
         </div>
+      )}
+
+      {outgoing.length > 0 && (
+        <>
+          <h3 className="subhead">Your requests</h3>
+          <div className="stack">
+            {outgoing.map((item) => {
+              const helper = userById[item.helperId]
+              const linked = questionText(item.questionId)
+              return (
+                <article key={item.id} className="card">
+                  <p className="meta">
+                    To {helper?.displayName || 'Student'} · {item.subject} ·{' '}
+                    {formatPostedAt(item.createdAt)}
+                  </p>
+                  {linked && <p>{linked}</p>}
+                  <p className={item.status === 'accepted' ? '' : 'muted'}>
+                    <strong>{STATUS_TEXT[item.status]}</strong>
+                  </p>
+                </article>
+              )
+            })}
+          </div>
+        </>
       )}
     </section>
   )

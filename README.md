@@ -44,8 +44,8 @@ update public.profiles set role = 'teacher' where id = '<auth user uuid>';
 ## What Phase 2 adds
 
 - Comment + 1–5 “how clear was this?” rating on each explanation (one review per student). Authors can reply. Cards show comment count and average clarity.
-- Ask for help: post a question, send a real `help_requests` row, helper accepts or declines.
-- Matching still uses complementary offer/need, ranked by helper reputation, then grade (prefer same or higher grade, then closer grade).
+- Ask for help (the **Help** tab): pick a subject, optionally write your question, and send a real `help_requests` row to a helper, who accepts or declines. You can see the status of the requests you sent.
+- Helpers are everyone who teaches that subject, ranked by their reputation in it, then by how close their grade is to yours. A **Trade** badge marks people you can teach something back.
 - After sign-up, a 3-step onboarding: grade → subjects you can teach → subjects you need help with.
 - Grade + subject reputation on explanation and match cards, with New / Trusted / Top explainer labels (`src/config/reputation.js`).
 
