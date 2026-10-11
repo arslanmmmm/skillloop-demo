@@ -9,7 +9,8 @@ export default function FeedPage() {
       <h2>Explanation board</h2>
       <p className="hint">
         Vote once if an explanation helped you. You cannot vote on your own
-        post. Votes raise the author’s reputation in that subject.
+        post. Add a comment and a 1–5 clarity rating. Votes raise the author’s
+        reputation in that subject.
       </p>
       {loading ? (
         <FeedSkeleton />

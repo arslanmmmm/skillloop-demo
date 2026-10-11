@@ -1,26 +1,35 @@
+import { useState } from 'react'
+import { reputationLabel } from '../config/reputation.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { useVote } from '../hooks/useVote.js'
-import { formatPostedAt, initials, voteCount } from '../lib/helpers.js'
+import { feedbackStats, formatPostedAt, initials, voteCount } from '../lib/helpers.js'
+import FeedbackThread from './FeedbackThread.jsx'
 
 export default function FeedCard({ item, author }) {
   const { profile } = useAuth()
-  const { votes, toggleVote, reputation } = useAppData()
+  const { votes, toggleVote, reputation, feedback } = useAppData()
   const { isOwn, canVote, voted, toggle } = useVote({
     explanation: item,
     userId: profile?.id,
     votes,
     toggleVote,
   })
+  const [open, setOpen] = useState(false)
   const helpful = voteCount(votes, item.id)
   const score = reputation(item.authorId, item.subject)
+  const label = reputationLabel(score)
+  const stats = feedbackStats(feedback, item.id)
 
   return (
     <article className="card post">
       <div className="card-head">
         <span className="avatar">{initials(author?.displayName || '?')}</span>
         <div>
-          <strong>{author?.displayName || 'Unknown'}</strong>
+          <strong>
+            {author?.displayName || 'Unknown'}{' '}
+            <span className="badge">{label}</span>
+          </strong>
           <p className="meta">
             Grade {author?.grade ?? '—'} · {item.subject} · {formatPostedAt(item.createdAt)}{' '}
             · reputation in {item.subject}: {score}
@@ -39,7 +48,13 @@ export default function FeedCard({ item, author }) {
         >
           Helpful · {helpful}
         </button>
+        <button type="button" className="react" onClick={() => setOpen((value) => !value)}>
+          {stats.count === 0
+            ? 'Comments'
+            : `Comments · ${stats.count}${stats.average != null ? ` · ${stats.average}/5 clear` : ''}`}
+        </button>
       </div>
+      {open && <FeedbackThread explanationId={item.id} authorId={item.authorId} />}
     </article>
   )
 }

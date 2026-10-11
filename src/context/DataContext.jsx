@@ -13,7 +13,10 @@ import {
   findMatches,
   getReputation,
   mapExplanation,
+  mapFeedback,
+  mapHelpRequest,
   mapProfile,
+  mapQuestion,
   mapVote,
 } from '../lib/helpers.js'
 import { useAuth } from './AuthContext.jsx'
@@ -25,11 +28,13 @@ export function DataProvider({ children }) {
   const [users, setUsers] = useState([])
   const [explanations, setExplanations] = useState([])
   const [votes, setVotes] = useState([])
+  const [feedback, setFeedback] = useState([])
+  const [questions, setQuestions] = useState([])
+  const [helpRequests, setHelpRequests] = useState([])
   const [reputationByUser, setReputationByUser] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
-  const [requestedIds, setRequestedIds] = useState([])
   const toastTimer = useRef(null)
 
   const showToast = useCallback((message) => {
@@ -41,20 +46,34 @@ export function DataProvider({ children }) {
   const loadAll = useCallback(async () => {
     setLoading(true)
     setError('')
-    const [profilesRes, subjectsRes, explanationsRes, votesRes, reputationRes] =
-      await Promise.all([
-        supabase.from('profiles').select('*').order('display_name'),
-        supabase.from('user_subjects').select('*'),
-        supabase.from('explanations').select('*').order('created_at', { ascending: false }),
-        supabase.from('votes').select('*'),
-        supabase.from('subject_reputation').select('*'),
-      ])
+    const [
+      profilesRes,
+      subjectsRes,
+      explanationsRes,
+      votesRes,
+      reputationRes,
+      feedbackRes,
+      questionsRes,
+      helpRes,
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').order('display_name'),
+      supabase.from('user_subjects').select('*'),
+      supabase.from('explanations').select('*').order('created_at', { ascending: false }),
+      supabase.from('votes').select('*'),
+      supabase.from('subject_reputation').select('*'),
+      supabase.from('feedback').select('*').order('created_at', { ascending: true }),
+      supabase.from('questions').select('*').order('created_at', { ascending: false }),
+      supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
+    ])
     const firstError =
       profilesRes.error ||
       subjectsRes.error ||
       explanationsRes.error ||
       votesRes.error ||
-      reputationRes.error
+      reputationRes.error ||
+      feedbackRes.error ||
+      questionsRes.error ||
+      helpRes.error
     if (firstError) {
       setError(firstError.message)
       setLoading(false)
@@ -65,6 +84,9 @@ export function DataProvider({ children }) {
     )
     setExplanations((explanationsRes.data ?? []).map(mapExplanation))
     setVotes((votesRes.data ?? []).map(mapVote))
+    setFeedback((feedbackRes.data ?? []).map(mapFeedback))
+    setQuestions((questionsRes.data ?? []).map(mapQuestion))
+    setHelpRequests((helpRes.data ?? []).map(mapHelpRequest))
     setReputationByUser(buildReputationMap(reputationRes.data))
     setLoading(false)
   }, [])
@@ -163,10 +185,87 @@ export function DataProvider({ children }) {
     [profile?.id, refreshReputation],
   )
 
-  const requestTrade = useCallback(
-    (userId, name) => {
-      setRequestedIds((ids) => (ids.includes(userId) ? ids : [...ids, userId]))
-      showToast(`Trade request sent to ${name}. They’ll see it in a later version.`)
+  const addFeedback = useCallback(
+    async ({ explanationId, body, clarityRating, parentId = null }) => {
+      const meId = profile?.id
+      if (!meId) throw new Error('Not signed in')
+      const payload = {
+        explanation_id: explanationId,
+        author_id: meId,
+        parent_id: parentId,
+        body,
+        clarity_rating: parentId ? null : clarityRating,
+      }
+      const { data, error: insertError } = await supabase
+        .from('feedback')
+        .insert(payload)
+        .select('*')
+        .single()
+      if (insertError) throw insertError
+      const mapped = mapFeedback(data)
+      setFeedback((list) => [...list, mapped])
+      return mapped
+    },
+    [profile?.id],
+  )
+
+  const addQuestion = useCallback(
+    async ({ subject, body }) => {
+      const meId = profile?.id
+      if (!meId) throw new Error('Not signed in')
+      const { data, error: insertError } = await supabase
+        .from('questions')
+        .insert({
+          author_id: meId,
+          subject,
+          body,
+        })
+        .select('*')
+        .single()
+      if (insertError) throw insertError
+      const mapped = mapQuestion(data)
+      setQuestions((list) => [mapped, ...list])
+      return mapped
+    },
+    [profile?.id],
+  )
+
+  const sendHelpRequest = useCallback(
+    async ({ helperId, subject, questionId = null, helperName }) => {
+      const meId = profile?.id
+      if (!meId) throw new Error('Not signed in')
+      const { data, error: insertError } = await supabase
+        .from('help_requests')
+        .insert({
+          requester_id: meId,
+          helper_id: helperId,
+          subject,
+          question_id: questionId,
+        })
+        .select('*')
+        .single()
+      if (insertError) throw insertError
+      const mapped = mapHelpRequest(data)
+      setHelpRequests((list) => [mapped, ...list])
+      showToast(`Request sent to ${helperName}. They can accept or decline.`)
+      return mapped
+    },
+    [profile?.id, showToast],
+  )
+
+  const respondToHelpRequest = useCallback(
+    async (requestId, status) => {
+      const { data, error: updateError } = await supabase
+        .from('help_requests')
+        .update({ status })
+        .eq('id', requestId)
+        .select('*')
+        .single()
+      if (updateError) throw updateError
+      const mapped = mapHelpRequest(data)
+      setHelpRequests((list) => list.map((item) => (item.id === requestId ? mapped : item)))
+      showToast(status === 'accepted' ? 'You accepted this request.' : 'You declined this request.')
+      return mapped
     },
     [showToast],
   )
@@ -186,10 +285,12 @@ export function DataProvider({ children }) {
       users,
       explanations,
       votes,
+      feedback,
+      questions,
+      helpRequests,
       loading,
       error,
       toast,
-      requestedIds,
       matches,
       userById,
       reputationByUser,
@@ -197,7 +298,10 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
-      requestTrade,
+      addFeedback,
+      addQuestion,
+      sendHelpRequest,
+      respondToHelpRequest,
       reputation: (userId, subject) =>
         getReputation(reputationByUser, userId, subject),
     }),
@@ -205,10 +309,12 @@ export function DataProvider({ children }) {
       users,
       explanations,
       votes,
+      feedback,
+      questions,
+      helpRequests,
       loading,
       error,
       toast,
-      requestedIds,
       matches,
       userById,
       reputationByUser,
@@ -216,7 +322,10 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
-      requestTrade,
+      addFeedback,
+      addQuestion,
+      sendHelpRequest,
+      respondToHelpRequest,
     ],
   )
 

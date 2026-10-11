@@ -7,14 +7,18 @@ import ProfileMenu from './ProfileMenu.jsx'
 const NAV = [
   { to: '/feed', label: 'Feed' },
   { to: '/profile', label: 'Profile' },
-  { to: '/matches', label: 'Matches' },
+  { to: '/matches', label: 'Help' },
   { to: '/write', label: 'Write' },
 ]
 
 export default function AppLayout() {
   const { profile, profileLoading, profileError, completeProfile, refreshProfile } =
     useAuth()
-  const { toast, error, loadAll } = useAppData()
+  const { toast, error, loadAll, helpRequests } = useAppData()
+  const pendingHelp =
+    helpRequests?.filter(
+      (item) => item.helperId === profile?.id && item.status === 'pending',
+    ).length ?? 0
 
   async function handleCompleteProfile(payload) {
     await completeProfile(payload)
@@ -49,7 +53,8 @@ export default function AppLayout() {
   const needsProfile =
     !profile ||
     !profile.displayName ||
-    (profile.role !== 'teacher' && !profile.grade)
+    (profile.role !== 'teacher' &&
+      (!profile.grade || !profile.offers?.length || !profile.needs?.length))
 
   if (needsProfile) {
     return <CompleteProfile onSave={handleCompleteProfile} existing={profile} />
@@ -71,6 +76,7 @@ export default function AppLayout() {
                 className={({ isActive }) => (isActive ? 'tab on' : 'tab')}
               >
                 {item.label}
+                {item.to === '/matches' && pendingHelp > 0 ? ` (${pendingHelp})` : ''}
               </NavLink>
             ))}
           </nav>
@@ -80,8 +86,8 @@ export default function AppLayout() {
       <main className="app">
         {error && (
           <p className="banner">
-            Could not load data. Run <code>supabase/schema.sql</code> in the SQL
-            Editor.{' '}
+            Could not load data. Run <code>supabase/phase2.sql</code> (or the full
+            schema) in the SQL Editor.{' '}
             <button type="button" className="text-btn inline" onClick={loadAll}>
               Retry
             </button>{' '}

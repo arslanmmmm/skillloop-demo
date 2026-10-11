@@ -5,7 +5,7 @@ Peer-learning app for grades 7–12. Students post short text explanations. Repu
 ## Setup
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL Editor, paste and run [`supabase/schema.sql`](supabase/schema.sql).
+2. In the SQL Editor, paste and run [`supabase/schema.sql`](supabase/schema.sql). If Phase 1 is already live and you want to keep data, run [`supabase/phase2.sql`](supabase/phase2.sql) instead.
 3. Authentication → Providers → Email → turn **off** “Confirm email” so sign-up returns a session immediately.
 4. Copy env values:
 
@@ -41,4 +41,12 @@ Teachers are not self-serve. Promote someone in the SQL editor:
 update public.profiles set role = 'teacher' where id = '<auth user uuid>';
 ```
 
-The `feedback` table is in the schema for comments/ratings (wired in Phase 2). Match “Request trade” is still a placeholder until Phase 2 help requests.
+## What Phase 2 adds
+
+- Comment + 1–5 “how clear was this?” rating on each explanation (one review per student). Authors can reply. Cards show comment count and average clarity.
+- Ask for help: post a question, send a real `help_requests` row, helper accepts or declines.
+- Matching still uses complementary offer/need, ranked by helper reputation, then grade (prefer same or higher grade, then closer grade).
+- After sign-up, a 3-step onboarding: grade → subjects you can teach → subjects you need help with.
+- Grade + subject reputation on explanation and match cards, with New / Trusted / Top explainer labels (`src/config/reputation.js`).
+
+Anonymous questions, reporting, and teacher moderation are Phase 3.

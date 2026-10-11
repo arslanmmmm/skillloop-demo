@@ -1,5 +1,6 @@
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
+import { reputationLabel } from '../config/reputation.js'
 import { initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
@@ -31,12 +32,18 @@ export default function ProfilePage() {
                 <span className="muted">None yet</span>
               </li>
             ) : (
-              profile.offers.map((subj) => (
-                <li key={subj}>
-                  <span>{subj}</span>
-                  <strong className="score">{reputation(profile.id, subj)}</strong>
-                </li>
-              ))
+              profile.offers.map((subj) => {
+                const score = reputation(profile.id, subj)
+                return (
+                  <li key={subj}>
+                    <span>
+                      {subj}{' '}
+                      <span className="badge">{reputationLabel(score)}</span>
+                    </span>
+                    <strong className="score">{score}</strong>
+                  </li>
+                )
+              })
             )}
           </ul>
         </div>

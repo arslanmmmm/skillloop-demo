@@ -1,14 +1,15 @@
--- SkillLoop Phase 1 schema
+-- SkillLoop Phase 1 + 2 schema
 -- Paste and run this entire file in the Supabase SQL Editor.
--- Safe to re-run: it drops Phase 1 objects first.
+-- Safe to re-run: it drops app objects first (this wipes SkillLoop data).
+-- If Phase 1 is already live and you want to keep data, run phase2.sql instead.
 
 create extension if not exists "pgcrypto";
 
 drop trigger if exists on_auth_user_created on auth.users;
-drop trigger if exists votes_no_self_vote on public.votes;
-drop trigger if exists profiles_protect_role on public.profiles;
 
 drop view if exists public.subject_reputation cascade;
+drop table if exists public.help_requests cascade;
+drop table if exists public.questions cascade;
 drop table if exists public.feedback cascade;
 drop table if exists public.votes cascade;
 drop table if exists public.user_subjects cascade;
@@ -19,10 +20,12 @@ drop table if exists public.profiles cascade;
 drop function if exists public.handle_new_user();
 drop function if exists public.prevent_self_vote();
 drop function if exists public.protect_profile_role();
+drop function if exists public.enforce_feedback_rules();
+drop function if exists public.protect_help_request();
 
 -- Subjects students asked for in the survey (keep in sync with src/config/subjects.js).
 -- Later phases can add columns (e.g. video_url, hidden_at, verified_at) and
--- tables (help_requests, reports) without changing these core keys.
+-- tables (reports) without changing these core keys.
 
 create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
@@ -78,14 +81,60 @@ create table public.votes (
   unique (explanation_id, user_id)
 );
 
--- Comments + clarity ratings (UI in Phase 2).
+-- Top-level rows are a comment + 1–5 clarity rating. Replies have parent_id and no rating.
 create table public.feedback (
   id uuid primary key default gen_random_uuid(),
   explanation_id uuid not null references public.explanations (id) on delete cascade,
   author_id uuid not null references public.profiles (id) on delete cascade,
+  parent_id uuid references public.feedback (id) on delete cascade,
   body text not null check (char_length(trim(body)) between 1 and 500),
-  clarity_rating smallint not null check (clarity_rating between 1 and 5),
+  clarity_rating smallint check (clarity_rating is null or clarity_rating between 1 and 5),
+  created_at timestamptz not null default now(),
+  constraint feedback_review_or_reply check (
+    (parent_id is null and clarity_rating between 1 and 5)
+    or (parent_id is not null and clarity_rating is null)
+  )
+);
+
+create table public.questions (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references public.profiles (id) on delete cascade,
+  subject text not null check (
+    subject in (
+      'Math',
+      'Physics',
+      'Chemistry',
+      'Biology',
+      'History',
+      'English',
+      'Computer Science',
+      'Geography'
+    )
+  ),
+  body text not null check (char_length(trim(body)) between 1 and 1000),
   created_at timestamptz not null default now()
+);
+
+create table public.help_requests (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references public.profiles (id) on delete cascade,
+  helper_id uuid not null references public.profiles (id) on delete cascade,
+  subject text not null check (
+    subject in (
+      'Math',
+      'Physics',
+      'Chemistry',
+      'Biology',
+      'History',
+      'English',
+      'Computer Science',
+      'Geography'
+    )
+  ),
+  question_id uuid references public.questions (id) on delete set null,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  constraint help_requests_not_self check (requester_id <> helper_id)
 );
 
 create index explanations_created_at_idx on public.explanations (created_at desc);
@@ -94,6 +143,17 @@ create index votes_explanation_idx on public.votes (explanation_id);
 create index votes_user_idx on public.votes (user_id);
 create index feedback_explanation_idx on public.feedback (explanation_id);
 create index user_subjects_user_idx on public.user_subjects (user_id);
+create index questions_created_at_idx on public.questions (created_at desc);
+create index help_requests_helper_idx on public.help_requests (helper_id, status);
+create index help_requests_requester_idx on public.help_requests (requester_id);
+
+create unique index feedback_one_review
+  on public.feedback (explanation_id, author_id)
+  where parent_id is null;
+
+create unique index help_requests_one_pending
+  on public.help_requests (requester_id, helper_id, subject)
+  where status = 'pending';
 
 -- Reputation = votes from other students on that author’s explanations in a subject.
 create view public.subject_reputation
@@ -128,6 +188,87 @@ create trigger votes_no_self_vote
   before insert on public.votes
   for each row execute function public.prevent_self_vote();
 
+create or replace function public.enforce_feedback_rules()
+returns trigger
+language plpgsql
+as $$
+declare
+  explanation_author uuid;
+  parent_explanation uuid;
+begin
+  select e.author_id into explanation_author
+  from public.explanations e
+  where e.id = new.explanation_id;
+
+  if explanation_author is null then
+    raise exception 'Explanation not found' using errcode = 'P0001';
+  end if;
+
+  if new.parent_id is null then
+    if new.author_id = explanation_author then
+      raise exception 'You cannot review your own explanation'
+        using errcode = 'P0001';
+    end if;
+  else
+    if new.author_id <> explanation_author then
+      raise exception 'Only the author can reply'
+        using errcode = 'P0001';
+    end if;
+
+    select f.explanation_id into parent_explanation
+    from public.feedback f
+    where f.id = new.parent_id and f.parent_id is null;
+
+    if parent_explanation is null or parent_explanation <> new.explanation_id then
+      raise exception 'Reply must belong to a comment on this explanation'
+        using errcode = 'P0001';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger feedback_rules
+  before insert on public.feedback
+  for each row execute function public.enforce_feedback_rules();
+
+create or replace function public.protect_help_request()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' and new.requester_id = new.helper_id then
+    raise exception 'You cannot request help from yourself'
+      using errcode = 'P0001';
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.requester_id <> old.requester_id
+      or new.helper_id <> old.helper_id
+      or new.subject <> old.subject
+      or new.question_id is distinct from old.question_id then
+      raise exception 'Cannot change who this request is for'
+        using errcode = 'P0001';
+    end if;
+    if old.status <> 'pending' then
+      raise exception 'This request was already answered'
+        using errcode = 'P0001';
+    end if;
+    if new.status not in ('accepted', 'declined') then
+      raise exception 'Status must be accepted or declined'
+        using errcode = 'P0001';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger help_requests_protect
+  before insert or update on public.help_requests
+  for each row execute function public.protect_help_request();
+
 -- Students cannot promote themselves. Admins change role in the SQL editor
 -- (auth.uid() is null there).
 create or replace function public.protect_profile_role()
@@ -153,6 +294,8 @@ alter table public.user_subjects enable row level security;
 alter table public.explanations enable row level security;
 alter table public.votes enable row level security;
 alter table public.feedback enable row level security;
+alter table public.questions enable row level security;
+alter table public.help_requests enable row level security;
 
 create policy "profiles select authenticated"
   on public.profiles for select
@@ -237,7 +380,18 @@ create policy "feedback select authenticated"
 create policy "feedback insert own"
   on public.feedback for insert
   to authenticated
-  with check (author_id = auth.uid());
+  with check (
+    author_id = auth.uid()
+    and (
+      parent_id is null
+      or exists (
+        select 1
+        from public.explanations e
+        where e.id = explanation_id
+          and e.author_id = auth.uid()
+      )
+    )
+  );
 
 create policy "feedback update own"
   on public.feedback for update
@@ -250,17 +404,51 @@ create policy "feedback delete own"
   to authenticated
   using (author_id = auth.uid());
 
+create policy "questions select authenticated"
+  on public.questions for select
+  to authenticated
+  using (true);
+
+create policy "questions insert own"
+  on public.questions for insert
+  to authenticated
+  with check (author_id = auth.uid());
+
+create policy "questions delete own"
+  on public.questions for delete
+  to authenticated
+  using (author_id = auth.uid());
+
+create policy "help_requests select involved"
+  on public.help_requests for select
+  to authenticated
+  using (requester_id = auth.uid() or helper_id = auth.uid());
+
+create policy "help_requests insert own"
+  on public.help_requests for insert
+  to authenticated
+  with check (requester_id = auth.uid() and helper_id <> auth.uid());
+
+create policy "help_requests helper update"
+  on public.help_requests for update
+  to authenticated
+  using (helper_id = auth.uid())
+  with check (helper_id = auth.uid());
+
 revoke all on table public.profiles from anon, public;
 revoke all on table public.user_subjects from anon, public;
 revoke all on table public.explanations from anon, public;
 revoke all on table public.votes from anon, public;
 revoke all on table public.feedback from anon, public;
+revoke all on table public.questions from anon, public;
+revoke all on table public.help_requests from anon, public;
 
 grant usage on schema public to authenticated;
-grant select on table public.profiles, public.user_subjects, public.explanations, public.votes, public.feedback to authenticated;
+grant select on table public.profiles, public.user_subjects, public.explanations, public.votes, public.feedback, public.questions, public.help_requests to authenticated;
 grant select on public.subject_reputation to authenticated;
 grant insert, update, delete on table public.profiles, public.explanations, public.feedback to authenticated;
-grant insert, delete on table public.user_subjects, public.votes to authenticated;
+grant insert, delete on table public.user_subjects, public.votes, public.questions to authenticated;
+grant insert, update on table public.help_requests to authenticated;
 
 create or replace function public.handle_new_user()
 returns trigger

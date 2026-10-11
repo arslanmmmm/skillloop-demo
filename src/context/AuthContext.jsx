@@ -118,16 +118,13 @@ export function AuthProvider({ children }) {
   )
 
   const signUp = useCallback(
-    async ({ email, password, displayName, grade, offers, needs }) => {
+    async ({ email, password, displayName }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             display_name: displayName,
-            grade: String(grade),
-            offers,
-            needs,
           },
         },
       })
@@ -139,15 +136,9 @@ export function AuthProvider({ children }) {
       }
       setSession(data.session)
       setUser(data.user ?? null)
-      await saveProfileAndSubjects({
-        displayName,
-        grade,
-        offers,
-        needs,
-        userId: data.user.id,
-      })
+      await loadProfile(data.user?.id)
     },
-    [saveProfileAndSubjects],
+    [loadProfile],
   )
 
   const signOut = useCallback(async () => {
