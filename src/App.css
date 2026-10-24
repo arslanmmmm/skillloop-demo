@@ -413,6 +413,11 @@ h2 {
   font-variant-numeric: tabular-nums;
 }
 
+.form .field-count.at-limit {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .form input:focus,
 .form select:focus,
 .form textarea:focus {

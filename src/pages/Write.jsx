@@ -5,8 +5,10 @@ import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { friendlyError } from '../lib/helpers.js'
 
-// Same limit as the explanations_title_check constraint in schema.sql.
+// Same limits as the explanations_title_check and explanations_body_check
+// constraints in schema.sql.
 const TITLE_MAX = 120
+const BODY_MAX = 4000
 
 export default function WritePage() {
   const { profile } = useAuth()
@@ -80,8 +82,12 @@ export default function WritePage() {
             rows={5}
             value={text}
             onChange={(event) => setText(event.target.value)}
+            maxLength={BODY_MAX}
             placeholder="Explain it like the reader is 11 years old."
           />
+          <span className={text.length >= BODY_MAX ? 'field-count at-limit' : 'field-count'}>
+            {text.length}/{BODY_MAX}
+          </span>
         </label>
         {formError && <p className="form-error">{formError}</p>}
         <button type="submit" className="primary" disabled={busy}>
