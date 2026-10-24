@@ -35,7 +35,7 @@ export default function FeedCard({ item, author }) {
         </div>
       </div>
       <h3>{item.title}</h3>
-      <p>{item.text}</p>
+      <p className="post-body">{item.text}</p>
       <div className="actions">
         <button
           type="button"
