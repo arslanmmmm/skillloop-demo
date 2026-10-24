@@ -4,6 +4,9 @@ import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 
+// Same limit as the explanations_title_check constraint in schema.sql.
+const TITLE_MAX = 120
+
 export default function WritePage() {
   const { profile } = useAuth()
   const { addExplanation, showToast } = useAppData()
@@ -63,8 +66,12 @@ export default function WritePage() {
           <input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
+            maxLength={TITLE_MAX}
             placeholder="e.g. Balancing equations, explained simply"
           />
+          <span className="field-count">
+            {title.length}/{TITLE_MAX}
+          </span>
         </label>
         <label>
           Explanation
