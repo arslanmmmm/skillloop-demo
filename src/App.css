@@ -1104,4 +1104,17 @@ h2 {
   .composer textarea {
     font-size: 16px;
   }
+
+  /* 44px is the smallest comfortable touch target. */
+  .tab,
+  button.primary,
+  .react {
+    min-height: 44px;
+  }
+
+  .tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
