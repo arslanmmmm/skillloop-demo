@@ -1037,3 +1037,50 @@ h2 {
   font-size: 14px;
   color: var(--ink);
 }
+
+/* Phones: brand and profile menu share the first row, tabs get their own. */
+@media (max-width: 640px) {
+  .shell-inner {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    padding: 10px 16px;
+  }
+
+  .tabs {
+    order: 3;
+    flex: 1 1 100%;
+  }
+
+  /* Compact profile menu so it fits beside the brand at 320px. */
+  .you {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .you .avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .you-copy {
+    min-width: 0;
+  }
+
+  .you-copy strong,
+  .you-copy p {
+    display: block;
+    max-width: 84px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tab {
+    padding: 10px 4px;
+  }
+
+  .app {
+    padding: 20px 16px 64px;
+  }
+}
