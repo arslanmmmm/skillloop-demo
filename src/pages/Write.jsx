@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
+import { friendlyError } from '../lib/helpers.js'
 
 // Same limit as the explanations_title_check constraint in schema.sql.
 const TITLE_MAX = 120
@@ -34,7 +35,7 @@ export default function WritePage() {
       showToast('Posted. Votes from others will raise your reputation.')
       navigate('/feed')
     } catch (err) {
-      setFormError(err.message)
+      setFormError(friendlyError(err))
     } finally {
       setBusy(false)
     }

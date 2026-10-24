@@ -156,6 +156,28 @@ export function formatTimeAgo(iso) {
   return formatPostedAt(iso)
 }
 
+// Turns database and network errors into short messages a student understands.
+// Our own triggers already raise plain-English messages (code P0001).
+export function friendlyError(err) {
+  const message = err?.message || ''
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(message)) {
+    return 'Could not reach the server. Check your internet connection and try again.'
+  }
+  if (err?.code === '23505' || /duplicate key/i.test(message)) {
+    return /votes_/.test(message) ? 'You already voted on this.' : 'That was already saved.'
+  }
+  if (err?.code === '23514' || /violates check constraint/i.test(message)) {
+    if (/title/.test(message)) return 'The title is too long. Keep it under 120 characters.'
+    if (/body/.test(message)) return 'The text is too long. Keep it under 4000 characters.'
+    return 'Some of what you entered is too long or not allowed. Please check it and try again.'
+  }
+  if (err?.code === '42501' || /row-level security/i.test(message)) {
+    return 'You are not allowed to do that.'
+  }
+  if (err?.code === 'P0001' && message) return message
+  return message || 'Something went wrong. Please try again.'
+}
+
 export function toggleItem(list, item) {
   return list.includes(item) ? list.filter((x) => x !== item) : [...list, item]
 }

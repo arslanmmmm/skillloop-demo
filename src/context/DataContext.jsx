@@ -10,6 +10,7 @@ import {
 import { supabase } from '../lib/supabaseClient.js'
 import {
   buildReputationMap,
+  friendlyError,
   getReputation,
   mapExplanation,
   mapFeedback,
@@ -35,6 +36,8 @@ export function DataProvider({ children }) {
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const toastTimer = useRef(null)
+  // Explanations with a vote still being saved; extra clicks are ignored until it finishes.
+  const votesInFlight = useRef(new Set())
 
   const showToast = useCallback((message) => {
     setToast(message)
@@ -111,6 +114,8 @@ export function DataProvider({ children }) {
         showToast('You cannot vote on your own explanation.')
         return
       }
+      if (votesInFlight.current.has(explanationId)) return
+      votesInFlight.current.add(explanationId)
       const existing = votes.find(
         (item) => item.explanationId === explanationId && item.userId === meId,
       )
@@ -156,7 +161,9 @@ export function DataProvider({ children }) {
         await refreshReputation()
       } catch (err) {
         setVotes(previous)
-        showToast(err.message || 'Could not save vote')
+        showToast(friendlyError(err))
+      } finally {
+        votesInFlight.current.delete(explanationId)
       }
     },
     [profile?.id, explanations, votes, showToast, refreshReputation],
