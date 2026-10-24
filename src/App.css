@@ -1096,4 +1096,12 @@ h2 {
   .app {
     padding: 20px 16px 64px;
   }
+
+  /* iOS Safari zooms into any field under 16px when it gets focus. */
+  .form input,
+  .form select,
+  .form textarea,
+  .composer textarea {
+    font-size: 16px;
+  }
 }
