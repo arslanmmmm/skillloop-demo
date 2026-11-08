@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { useVote } from '../hooks/useVote.js'
-import { feedbackStats, formatPostedAt, initials, voteCount } from '../lib/helpers.js'
+import { feedbackStats, formatPostedAt, initials, roleLabel, voteCount } from '../lib/helpers.js'
 import BlockConfirm from './BlockConfirm.jsx'
 import FeedbackThread from './FeedbackThread.jsx'
 import ReportForm from './ReportForm.jsx'
@@ -36,7 +36,8 @@ export default function FeedCard({ item, author }) {
             <ReputationBadge score={score} subject={item.subject} />
           </strong>
           <p className="meta">
-            Grade {author?.grade ?? '—'} · {item.subject} · {formatPostedAt(item.createdAt)}
+            {roleLabel(author)} · {item.subject} · {formatPostedAt(item.createdAt)}
+            {item.editedAt ? ' · edited' : ''}
           </p>
         </div>
       </div>

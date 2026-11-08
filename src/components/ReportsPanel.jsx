@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { REPORT_REASONS } from '../config/reports.js'
+import CorrectionNoteForm from './CorrectionNoteForm.jsx'
 import { useAppData } from '../hooks/useAppData.js'
-import { formatTimeAgo, friendlyError } from '../lib/helpers.js'
+import { formatTimeAgo, friendlyError, roleLabel } from '../lib/helpers.js'
 
 // Teacher-only list of open reports, newest first. Reported chat messages are
 // read from the copy saved in the report; teachers cannot read chats.
@@ -84,6 +85,7 @@ export default function ReportsPanel() {
 function ReportCard({ report, onHandled }) {
   const { userById, explanations, reviewExplanation, setReportStatus, showToast } = useAppData()
   const [busy, setBusy] = useState(false)
+  const [writingNote, setWritingNote] = useState(false)
   const saving = useRef(false)
   const reported = userById[report.reportedUserId]
   const reporter = userById[report.reporterId]
@@ -91,6 +93,10 @@ function ReportCard({ report, onHandled }) {
     ? explanations.find((item) => item.id === report.explanationId)
     : null
   const isMessage = report.targetType === 'message'
+  const editedAfterReport =
+    post?.editedAt && new Date(post.editedAt) > new Date(report.createdAt)
+  const canAskForCorrection =
+    post && post.reviewStatus !== 'hidden' && post.reviewStatus !== 'needs_correction'
 
   async function run(action, doneText) {
     if (saving.current) return
@@ -113,6 +119,23 @@ function ReportCard({ report, onHandled }) {
     await run(() => reviewExplanation(post.id, 'hidden'), 'Hidden from students.')
   }
 
+  // Instead of hiding: tell the student what to fix (the note shows on the
+  // post and they can edit it), then close the report.
+  async function handleAskForCorrection(note) {
+    const flagged = await run(
+      () => reviewExplanation(post.id, 'needs_correction', note),
+      'Correction requested. The student sees your note on the post.',
+    )
+    if (!flagged) return
+    setWritingNote(false)
+    try {
+      await setReportStatus(report.id, 'handled')
+      onHandled()
+    } catch (err) {
+      showToast(`Note saved, but the report is still open: ${friendlyError(err)}`)
+    }
+  }
+
   async function handleMarkHandled() {
     const ok = await run(() => setReportStatus(report.id, 'handled'), 'Report marked as handled.')
     if (ok) onHandled()
@@ -127,8 +150,8 @@ function ReportCard({ report, onHandled }) {
         <span className="status-pill report-reason">{REPORT_REASONS[report.reason]}</span>
       </div>
       <p className="report-people">
-        Reported student: <strong>{reported?.displayName || 'Deleted account'}</strong>
-        {reported?.grade ? ` · Grade ${reported.grade}` : ''}
+        Reported: <strong>{reported?.displayName || 'Deleted account'}</strong>
+        {reported ? ` · ${roleLabel(reported)}` : ''}
         <br />
         <span className="muted">Reported by {reporter?.displayName || 'a student'}</span>
       </p>
@@ -137,21 +160,44 @@ function ReportCard({ report, onHandled }) {
         {report.snapshotTitle && <strong>{report.snapshotTitle}</strong>}
         <p>{report.snapshot}</p>
       </div>
-      <div className="actions review-actions">
-        {!isMessage &&
-          (!post ? (
-            <span className="muted">This post was deleted.</span>
-          ) : post.reviewStatus === 'hidden' ? (
-            <span className="status-pill review-hidden">Post hidden</span>
-          ) : (
-            <button type="button" className="react" disabled={busy} onClick={handleHide}>
-              Hide post
+      {editedAfterReport && (
+        <p className="edited-flag">
+          ✎ The student edited this post after it was reported. Above is the text that was
+          reported.
+        </p>
+      )}
+      {post?.reviewStatus === 'needs_correction' && post.teacherNote && (
+        <p className="review-note">Correction asked: {post.teacherNote}</p>
+      )}
+      {writingNote ? (
+        <CorrectionNoteForm
+          busy={busy}
+          submitLabel="Send to student"
+          onSubmit={handleAskForCorrection}
+          onCancel={() => setWritingNote(false)}
+        />
+      ) : (
+        <div className="actions review-actions">
+          {!isMessage &&
+            (!post ? (
+              <span className="muted">This post was deleted.</span>
+            ) : post.reviewStatus === 'hidden' ? (
+              <span className="status-pill review-hidden">Post hidden</span>
+            ) : (
+              <button type="button" className="react" disabled={busy} onClick={handleHide}>
+                Hide post
+              </button>
+            ))}
+          {!isMessage && canAskForCorrection && (
+            <button type="button" className="react" disabled={busy} onClick={() => setWritingNote(true)}>
+              Ask for correction
             </button>
-          ))}
-        <button type="button" className="primary" disabled={busy} onClick={handleMarkHandled}>
-          Mark handled
-        </button>
-      </div>
+          )}
+          <button type="button" className="primary" disabled={busy} onClick={handleMarkHandled}>
+            Mark handled
+          </button>
+        </div>
+      )}
     </article>
   )
 }

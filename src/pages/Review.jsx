@@ -1,12 +1,13 @@
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import CorrectionNoteForm from '../components/CorrectionNoteForm.jsx'
 import LoadMore from '../components/LoadMore.jsx'
 import ReportsPanel from '../components/ReportsPanel.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { usePagedExplanations } from '../hooks/usePagedExplanations.js'
-import { formatPostedAt, friendlyError, voteCount } from '../lib/helpers.js'
+import { formatPostedAt, formatTimeAgo, friendlyError, roleLabel, voteCount } from '../lib/helpers.js'
 
 const STATUS_LABELS = {
   none: 'Not reviewed',
@@ -14,7 +15,6 @@ const STATUS_LABELS = {
   needs_correction: 'Needs correction',
   hidden: 'Hidden',
 }
-const NOTE_MAX = 500
 
 // Teacher-only page. The route is shown to everyone who types the address,
 // but the database only lets teachers change review fields or read reports.
@@ -130,8 +130,10 @@ function ExplanationsTab() {
 function ReviewCard({ item, author, helpful }) {
   const { reviewExplanation, showToast } = useAppData()
   const [writingNote, setWritingNote] = useState(false)
-  const [note, setNote] = useState(item.teacherNote || '')
   const [busy, setBusy] = useState(false)
+  // The student changed the post after this review (e.g. to fix a correction).
+  const editedSinceReview =
+    item.editedAt && item.reviewedAt && new Date(item.editedAt) > new Date(item.reviewedAt)
   const saving = useRef(false)
 
   async function review(status, teacherNote = null) {
@@ -161,8 +163,8 @@ function ReviewCard({ item, author, helpful }) {
     <article className="card review-card">
       <div className="review-head">
         <p className="meta">
-          {author?.displayName || 'Student'} · Grade {author?.grade ?? '—'} · {item.subject} ·{' '}
-          {formatPostedAt(item.createdAt)} · {helpful} helpful
+          {author?.displayName || 'Student'} · {roleLabel(author)} · {item.subject} ·{' '}
+          {formatPostedAt(item.createdAt)} · {helpful} helpful{item.editedAt ? ' · edited' : ''}
         </p>
         <span className={`status-pill review-${item.reviewStatus}`}>
           {STATUS_LABELS[item.reviewStatus]}
@@ -173,35 +175,20 @@ function ReviewCard({ item, author, helpful }) {
       {item.reviewStatus === 'needs_correction' && item.teacherNote && (
         <p className="review-note">Your note: {item.teacherNote}</p>
       )}
+      {editedSinceReview && (
+        <p className="edited-flag">
+          ✎ Edited by the student {formatTimeAgo(item.editedAt)}, after your review. Check it again.
+        </p>
+      )}
 
       {writingNote ? (
-        <form
-          className="form review-note-form"
-          onSubmit={(event) => {
-            event.preventDefault()
-            if (note.trim()) review('needs_correction', note.trim())
-          }}
-        >
-          <label>
-            What needs correcting? (students see this)
-            <textarea
-              rows={2}
-              maxLength={NOTE_MAX}
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="e.g. The date is wrong; check page 42."
-              autoFocus
-            />
-          </label>
-          <div className="form-actions">
-            <button type="button" className="text-btn cancel" onClick={() => setWritingNote(false)}>
-              Cancel
-            </button>
-            <button type="submit" className="primary" disabled={busy || !note.trim()}>
-              Flag post
-            </button>
-          </div>
-        </form>
+        <CorrectionNoteForm
+          initialNote={item.teacherNote || ''}
+          busy={busy}
+          submitLabel="Flag post"
+          onSubmit={(note) => review('needs_correction', note)}
+          onCancel={() => setWritingNote(false)}
+        />
       ) : (
         <div className="actions review-actions">
           {item.reviewStatus !== 'verified' && (

@@ -358,6 +358,29 @@ export function DataProvider({ children }) {
     [profile?.id, showToast, resetExplanations],
   )
 
+  // The author fixes their own post. Only title and text are sent: the database
+  // keeps the subject and date, resets a teacher "verified" mark and clears the
+  // helpful votes (they were for the old text).
+  const updateExplanation = useCallback(
+    async (explanationId, { title, text }) => {
+      const { data, error: updateError } = await supabase
+        .from('explanations')
+        .update({ title, body: text })
+        .eq('id', explanationId)
+        .select('*')
+        .single()
+      if (updateError) throw updateError
+      const mapped = mapExplanation(data)
+      setExplanations((list) => list.map((item) => (item.id === explanationId ? mapped : item)))
+      if (mapped.editedAt) {
+        setVotes((list) => list.filter((item) => item.explanationId !== explanationId))
+        await refreshReputation()
+      }
+      return mapped
+    },
+    [refreshReputation],
+  )
+
   const addExplanation = useCallback(
     async ({ subject, title, text }) => {
       const meId = profile?.id
@@ -513,6 +536,7 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
+      updateExplanation,
       reviewExplanation,
       addFeedback,
       deleteFeedback,
@@ -550,6 +574,7 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
+      updateExplanation,
       reviewExplanation,
       addFeedback,
       deleteFeedback,

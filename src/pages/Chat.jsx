@@ -64,7 +64,8 @@ export default function ChatPage() {
               Report a message
             </button>
           )}
-          {!blocked && (
+          {/* Teachers end a chat by resolving it; they do not block students. */}
+          {!blocked && profile.role !== 'teacher' && (
             <button
               type="button"
               className={panel === 'block' ? 'react on' : 'react'}

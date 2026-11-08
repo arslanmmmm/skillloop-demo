@@ -41,6 +41,8 @@ export function mapExplanation(row) {
     teacherNote: row.teacher_note,
     reviewedBy: row.reviewed_by,
     reviewedAt: row.reviewed_at,
+    // Set by the database when the author changes the title or text.
+    editedAt: row.edited_at ?? null,
   }
 }
 

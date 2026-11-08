@@ -1693,6 +1693,91 @@ h2 {
   margin-top: 0;
 }
 
+/* Profile: my posts as a short list of titles that open on tap */
+.my-posts .my-post {
+  padding: 0;
+}
+
+.my-post-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.my-post-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.my-post-title {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+
+.my-post-title strong {
+  overflow-wrap: anywhere;
+}
+
+.my-post-head .chevron {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin: 0 4px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.my-post.open .chevron {
+  transform: rotate(45deg);
+}
+
+.my-post-body {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.my-post-body .post-body {
+  margin: 12px 0;
+}
+
+.my-post-body .link-btn {
+  display: inline-flex;
+}
+
+.fix-badge {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.card .edited-flag,
+.edited-flag {
+  margin: 8px 0 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--chip);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.note-help,
+.edit-note {
+  margin: 0;
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {
@@ -1766,6 +1851,7 @@ h2 {
   .react,
   .text-btn.cancel,
   .auth-card .text-btn,
+  .link-btn,
   .form select {
     min-height: 44px;
   }
