@@ -127,13 +127,15 @@ export function AuthProvider({ children }) {
   )
 
   const signUp = useCallback(
-    async ({ email, password, displayName }) => {
+    async ({ email, password, displayName, accountType = 'student' }) => {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             display_name: displayName,
+            // 'teacher' only records a request; an admin approves it (005).
+            account_type: accountType === 'teacher' ? 'teacher' : 'student',
           },
         },
       })
@@ -149,6 +151,18 @@ export function AuthProvider({ children }) {
     },
     [loadProfile],
   )
+
+  // A teacher request can be withdrawn to use SkillLoop as a student instead.
+  const userId = user?.id
+  const cancelTeacherRequest = useCallback(async () => {
+    if (!userId) throw new Error('Not signed in')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ requested_role: null })
+      .eq('id', userId)
+    if (error) throw error
+    return loadProfile(userId)
+  }, [loadProfile, userId])
 
   const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
@@ -172,6 +186,7 @@ export function AuthProvider({ children }) {
       signIn,
       signUp,
       signOut,
+      cancelTeacherRequest,
       completeProfile: saveProfileAndSubjects,
       refreshProfile,
     }),
@@ -185,6 +200,7 @@ export function AuthProvider({ children }) {
       signIn,
       signUp,
       signOut,
+      cancelTeacherRequest,
       saveProfileAndSubjects,
       refreshProfile,
     ],

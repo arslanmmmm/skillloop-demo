@@ -15,6 +15,8 @@ export function mapProfile(row, subjects = []) {
     displayName: row.display_name,
     grade: row.grade,
     role: row.role,
+    // 'teacher' while a teacher sign-up waits for an admin to approve it.
+    requestedRole: row.requested_role ?? null,
     offers: mine.filter((item) => item.kind === 'offer').map((item) => item.subject),
     needs: mine.filter((item) => item.kind === 'need').map((item) => item.subject),
     createdAt: row.created_at,

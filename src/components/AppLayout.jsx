@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import CompleteProfile from './CompleteProfile.jsx'
+import TeacherPending from './TeacherPending.jsx'
 import ProfileMenu from './ProfileMenu.jsx'
 
 const NAV = [
@@ -53,6 +54,11 @@ export default function AppLayout() {
         </div>
       </div>
     )
+  }
+
+  // Teacher sign-ups wait here until an admin approves them (no teacher rights yet).
+  if (profile && profile.role !== 'teacher' && profile.requestedRole === 'teacher') {
+    return <TeacherPending />
   }
 
   const needsProfile =

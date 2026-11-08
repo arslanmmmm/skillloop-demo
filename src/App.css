@@ -1625,6 +1625,28 @@ h2 {
   padding: 24px 16px;
 }
 
+/* Sign-up: student or teacher */
+.account-type {
+  margin-bottom: 0;
+}
+
+.teacher-pending p {
+  margin: 0 0 12px;
+}
+
+.pending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 8px;
+}
+
+.pending-actions .primary,
+.pending-actions .text-btn {
+  margin-top: 0;
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {
@@ -1697,6 +1719,7 @@ h2 {
   button.primary,
   .react,
   .text-btn.cancel,
+  .auth-card .text-btn,
   .form select {
     min-height: 44px;
   }

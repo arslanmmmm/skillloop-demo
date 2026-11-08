@@ -3,12 +3,19 @@ import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { friendlyError } from '../lib/helpers.js'
 
+const ACCOUNT_TYPES = [
+  ['student', 'Student'],
+  ['teacher', 'Teacher'],
+]
+
 export default function LoginPage() {
   const { session, loading, signIn, signUp } = useAuth()
   const [mode, setMode] = useState('signin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [displayName, setDisplayName] = useState('')
+  const [accountType, setAccountType] = useState('student')
+  const isTeacher = mode === 'signup' && accountType === 'teacher'
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -39,6 +46,7 @@ export default function LoginPage() {
           email: email.trim(),
           password,
           displayName: displayName.trim(),
+          accountType,
         })
       }
     } catch (err) {
@@ -53,17 +61,35 @@ export default function LoginPage() {
       <form className="card form auth-card" onSubmit={submit}>
         <p className="eyebrow">SkillLoop</p>
         <h1>{mode === 'signin' ? 'Sign in' : 'Create an account'}</h1>
-        <p className="hint">
-          Reputation comes from other students voting your explanations as
-          helpful — not a score you type in.
-        </p>
+        {!isTeacher && (
+          <p className="hint">
+            Reputation comes from other students voting your explanations as
+            helpful — not a score you type in.
+          </p>
+        )}
+        {mode === 'signup' && (
+          <div className="seg account-type" role="radiogroup" aria-label="I am a">
+            {ACCOUNT_TYPES.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={accountType === value}
+                className={accountType === value ? 'seg-btn on' : 'seg-btn'}
+                onClick={() => setAccountType(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         {mode === 'signup' && (
           <label>
-            Display name
+            {isTeacher ? 'Your name (students will see it)' : 'Display name'}
             <input
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
-              placeholder="Aigerim"
+              placeholder={isTeacher ? 'Ms Aigerim' : 'Aigerim'}
               autoComplete="nickname"
               required
               maxLength={80}
@@ -93,12 +119,20 @@ export default function LoginPage() {
         </label>
         {mode === 'signup' && (
           <p className="hint tight">
-            Next you’ll pick your grade and subjects. New accounts are students.
+            {isTeacher
+              ? 'A school admin checks every teacher account. You can sign in straight away, and teacher tools open once you are approved.'
+              : 'Next you’ll pick your grade and subjects.'}
           </p>
         )}
         {message && <p className="form-error">{message}</p>}
         <button type="submit" className="primary" disabled={busy}>
-          {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
+          {busy
+            ? 'Please wait…'
+            : mode === 'signin'
+              ? 'Sign in'
+              : isTeacher
+                ? 'Sign up as a teacher'
+                : 'Sign up as a student'}
         </button>
         <button
           type="button"
