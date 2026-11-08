@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { FeedSkeleton } from '../components/FeedCard.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
@@ -131,6 +132,7 @@ export default function MatchesPage() {
                     topic={requestTopic(item)}
                     message={item.message}
                   />
+                  {item.status === 'accepted' && <ChatLink requestId={item.id} />}
                   {item.status === 'pending' && (
                     <div className="actions">
                       <button
@@ -200,6 +202,7 @@ export default function MatchesPage() {
                     {requestTopic(existing) && (
                       <span className="muted">Topic: {requestTopic(existing)}</span>
                     )}
+                    {existing.status === 'accepted' && <ChatLink requestId={existing.id} />}
                   </div>
                 ) : formOpen ? (
                   <RequestForm
@@ -247,6 +250,7 @@ export default function MatchesPage() {
                     topic={requestTopic(item)}
                     message={item.message}
                   />
+                  {item.status === 'accepted' && <ChatLink requestId={item.id} />}
                 </article>
               )
             })}
@@ -258,6 +262,14 @@ export default function MatchesPage() {
 }
 
 // The helper sees "Needs your answer" where the requester sees "Waiting for an answer".
+function ChatLink({ requestId }) {
+  return (
+    <Link to={`/chat/${requestId}`} className="primary link-btn">
+      Open chat
+    </Link>
+  )
+}
+
 function StatusPill({ status, forHelper = false }) {
   const text = forHelper && status === 'pending' ? 'Needs your answer' : STATUS_TEXT[status]
   return <span className={`status-pill status-${status}`}>{text}</span>

@@ -97,6 +97,33 @@ export function DataProvider({ children }) {
     loadAll()
   }, [loadAll])
 
+  // Live updates for help requests: a new request or an accept/decline shows
+  // up without a reload. Realtime applies the same RLS, so each student only
+  // receives requests they are part of.
+  const meId = profile?.id
+  useEffect(() => {
+    if (!meId) return undefined
+    const channel = supabase
+      .channel(`help-requests-${meId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'help_requests' },
+        (payload) => {
+          if (!payload.new?.id) return
+          const mapped = mapHelpRequest(payload.new)
+          setHelpRequests((list) =>
+            list.some((item) => item.id === mapped.id)
+              ? list.map((item) => (item.id === mapped.id ? mapped : item))
+              : [mapped, ...list],
+          )
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [meId])
+
   const refreshReputation = useCallback(async () => {
     const { data, error: repError } = await supabase
       .from('subject_reputation')

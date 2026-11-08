@@ -17,7 +17,7 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 10 | Double-click on Accept/Decline sent two updates; second showed "This request was already answered" | Code review + double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 11 | Double-click on Send request sent two requests; raw duplicate-key error | Code review + double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 12 | Raw database errors shown in help requests, comments, replies, delete, edit profile, onboarding and sign-in | Code review (Step 1) | Medium | Fixed (Step 1) |
-| 13 | Help requests and their status do not update until the page is reloaded | Two-account test (Step 1) | Medium | Open – Step 2 (Realtime) |
+| 13 | Help requests and their status do not update until the page is reloaded | Two-account test (Step 1) | Medium | Fixed (Step 2, Supabase Realtime) |
 | 14 | Double-click on Reply posted the same reply twice (no database rule stops duplicate replies) | Double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 15 | Double-click on Comment sent two ratings; raw duplicate-key error | Double-click test (Step 1) | Low | Fixed (Step 1) |
 | 16 | Database accepts a help request to a student who does not teach that subject (app never offers it, but the API allows it) | Two-student database test (Step 1) | Low | Open – Step 5 (safety) |

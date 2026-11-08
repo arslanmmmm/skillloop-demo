@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout from './components/AppLayout.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import ChatPage from './pages/Chat.jsx'
 import FeedPage from './pages/Feed.jsx'
 import LoginPage from './pages/Login.jsx'
 import MatchesPage from './pages/Matches.jsx'
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/feed" element={<FeedPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/matches" element={<MatchesPage />} />
+          <Route path="/chat/:requestId" element={<ChatPage />} />
           <Route path="/write" element={<WritePage />} />
         </Route>
       </Route>

@@ -77,6 +77,16 @@ export function mapHelpRequest(row) {
   }
 }
 
+export function mapMessage(row) {
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    senderId: row.sender_id,
+    body: row.body,
+    createdAt: row.created_at,
+  }
+}
+
 export function feedbackStats(feedback, explanationId) {
   const reviews = (feedback ?? []).filter(
     (item) => item.explanationId === explanationId && !item.parentId,
