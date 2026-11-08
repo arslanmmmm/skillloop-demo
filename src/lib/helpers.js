@@ -188,6 +188,20 @@ export function formatTimeAgo(iso) {
   return formatPostedAt(iso)
 }
 
+// Length limits from supabase/schema.sql, keyed by the check constraint's name.
+// Keep these in sync when a limit changes there.
+const TEXT_LIMITS = {
+  profiles_display_name_check: { label: 'Your name', max: 80 },
+  explanations_title_check: { label: 'The title', max: 120 },
+  explanations_body_check: { label: 'The text', max: 4000 },
+  feedback_body_check: { label: 'Your comment', max: 500 },
+  questions_body_check: { label: 'Your question', max: 1000 },
+  messages_body_check: { label: 'Your message', max: 1000 },
+  help_requests_topic_length: { label: 'The topic', max: 120 },
+  help_requests_message_length: { label: 'Your message', max: 1000 },
+  help_ratings_comment_check: { label: 'Your comment', max: 300 },
+}
+
 // Turns database and network errors into short messages a student understands.
 // Our own triggers already raise plain-English messages (code P0001).
 export function friendlyError(err) {
@@ -205,8 +219,9 @@ export function friendlyError(err) {
     return 'That was already saved.'
   }
   if (err?.code === '23514' || /violates check constraint/i.test(message)) {
-    if (/title/.test(message)) return 'The title is too long. Keep it under 120 characters.'
-    if (/body/.test(message)) return 'The text is too long. Keep it under 4000 characters.'
+    const constraint = message.match(/check constraint "([^"]+)"/)?.[1]
+    const limit = TEXT_LIMITS[constraint]
+    if (limit) return `${limit.label} is too long. Keep it under ${limit.max} characters.`
     return 'Some of what you entered is too long or not allowed. Please check it and try again.'
   }
   if (/row-level security.*"messages"/i.test(message)) {
