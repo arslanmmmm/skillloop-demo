@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { supabase } from '../lib/supabaseClient.js'
-import { formatTimeAgo, friendlyError, initials, mapMessage } from '../lib/helpers.js'
+import { formatTimeAgo, friendlyError, initials, mapMessage, roleLabel } from '../lib/helpers.js'
 import BlockConfirm from '../components/BlockConfirm.jsx'
 import ReportForm from '../components/ReportForm.jsx'
 
@@ -47,7 +47,7 @@ export default function ChatPage() {
         <div>
           <strong>{otherName}</strong>
           <p className="meta">
-            Grade {other?.grade ?? '—'} · {isHelper ? 'asked you for help' : 'is helping you'}
+            {roleLabel(other)} · {isHelper ? 'asked you for help' : 'is helping you'}
           </p>
         </div>
         <p className="chat-topic">

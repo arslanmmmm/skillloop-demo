@@ -7,6 +7,12 @@ export function initials(name) {
     .toUpperCase()
 }
 
+// "Teacher" for teachers, "Grade 9" for students (badge, cards, chat header).
+export function roleLabel(person) {
+  if (person?.role === 'teacher') return 'Teacher'
+  return `Grade ${person?.grade ?? '—'}`
+}
+
 export function mapProfile(row, subjects = []) {
   if (!row) return null
   const mine = subjects.filter((item) => item.user_id === row.id)
@@ -172,20 +178,30 @@ export function getReputation(reputationByUser, userId, subject) {
   return reputationByUser[userId]?.[subject] ?? 0
 }
 
-// Everyone who teaches `subject`, ranked by their reputation in it, then by
-// how close their grade is to mine. `youTeach` marks a two-way trade.
+// Everyone who teaches `subject`: students first, ranked by their reputation
+// in it, then by how close their grade is to mine; teachers after them (votes
+// from students do not rank teachers). `youTeach` marks a two-way trade.
+// Accounts still waiting for teacher approval are never listed.
 export function findHelpers(users, reputationByUser, me, subject) {
   if (!me || !subject) return []
   return users
-    .filter((other) => other.id !== me.id && other.offers.includes(subject))
+    .filter(
+      (other) =>
+        other.id !== me.id &&
+        other.offers.includes(subject) &&
+        !(other.role !== 'teacher' && other.requestedRole === 'teacher'),
+    )
     .map((other) => ({
       user: other,
+      isTeacher: other.role === 'teacher',
       score: getReputation(reputationByUser, other.id, subject),
       gradeGap: gradeGap(me.grade, other.grade),
-      youTeach: me.offers.filter((item) => other.needs.includes(item)),
+      youTeach:
+        other.role === 'teacher' ? [] : me.offers.filter((item) => other.needs.includes(item)),
     }))
     .sort(
       (a, b) =>
+        Number(a.isTeacher) - Number(b.isTeacher) ||
         b.score - a.score ||
         a.gradeGap - b.gradeGap ||
         (b.user.grade ?? 0) - (a.user.grade ?? 0) ||

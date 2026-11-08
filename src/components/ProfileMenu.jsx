@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
-import { initials } from '../lib/helpers.js'
+import { initials, roleLabel } from '../lib/helpers.js'
 
 export default function ProfileMenu() {
   const { profile, signOut } = useAuth()
@@ -31,13 +31,17 @@ export default function ProfileMenu() {
         className="you you-btn"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`${label}, ${roleLabel(profile)}, account menu`}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="avatar">{initials(label)}</span>
-        <div className="you-copy">
+        <span className="avatar" aria-hidden="true">
+          {initials(label)}
+        </span>
+        {/* Spans, not div/p: only inline content is valid inside a button. */}
+        <span className="you-copy">
           <strong>{label}</strong>
-          <p>Grade {profile?.grade ?? '—'}</p>
-        </div>
+          <span className="you-role">{roleLabel(profile)}</span>
+        </span>
       </button>
       {open && (
         <div className="menu" role="menu">

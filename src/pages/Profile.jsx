@@ -5,13 +5,14 @@ import { usePagedExplanations } from '../hooks/usePagedExplanations.js'
 import EditProfile from '../components/EditProfile.jsx'
 import LoadMore from '../components/LoadMore.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
-import { formatPostedAt, friendlyError, initials, voteCount } from '../lib/helpers.js'
+import { formatPostedAt, friendlyError, initials, roleLabel, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
   const { votes, reputation, ratingSummary } = useAppData()
   const helpRating = ratingSummary[profile.id]
   const [editing, setEditing] = useState(false)
+  const isTeacher = profile.role === 'teacher'
   const {
     items: mine,
     isLoading,
@@ -27,12 +28,12 @@ export default function ProfilePage() {
         <span className="avatar lg">{initials(profile.displayName)}</span>
         <div>
           <h2>{profile.displayName}</h2>
-          <p className="hint tight">
-            Grade {profile.grade ?? '—'} · {profile.role}
-          </p>
-          <p className="hint tight">
-            Credibility is computed from other students’ votes, not a self-score.
-          </p>
+          <p className="hint tight">{roleLabel(profile)}</p>
+          {!isTeacher && (
+            <p className="hint tight">
+              Credibility is computed from other students’ votes, not a self-score.
+            </p>
+          )}
           <p className="help-rating">
             {helpRating ? (
               <>
@@ -44,7 +45,11 @@ export default function ProfilePage() {
                 </span>
               </>
             ) : (
-              <span className="muted">No help ratings yet. Help a classmate to get your first one.</span>
+              <span className="muted">
+                {isTeacher
+                  ? 'No help ratings yet. Students rate a session after you help them.'
+                  : 'No help ratings yet. Help a classmate to get your first one.'}
+              </span>
             )}
           </p>
         </div>
@@ -56,6 +61,8 @@ export default function ProfilePage() {
       </div>
       {editing ? (
         <EditProfile onDone={() => setEditing(false)} />
+      ) : isTeacher ? (
+        <TeacherSubjects subjects={profile.offers} onEdit={() => setEditing(true)} />
       ) : (
         <div className="profile-grid">
           <div className="card">
@@ -178,6 +185,36 @@ function BlockedList() {
             )
           })}
         </ul>
+      )}
+    </div>
+  )
+}
+
+// Teachers do not need help, so they only list the subjects students can ask them about.
+function TeacherSubjects({ subjects, onEdit }) {
+  return (
+    <div className="card">
+      <h3>Subjects I teach</h3>
+      {subjects.length === 0 ? (
+        <>
+          <p className="hint">
+            Add the subjects you teach so students can ask you for help on the Help page.
+          </p>
+          <button type="button" className="primary" onClick={onEdit}>
+            Add subjects
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="hint">Students can ask you for help with these on the Help page.</p>
+          <ul className="plain">
+            {subjects.map((subject) => (
+              <li key={subject}>
+                <span>{subject}</span>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   )

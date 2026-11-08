@@ -5,7 +5,7 @@ import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { findHelpers, formatTimeAgo, friendlyError, initials } from '../lib/helpers.js'
+import { findHelpers, formatTimeAgo, friendlyError, initials, roleLabel } from '../lib/helpers.js'
 
 const STATUS_TEXT = {
   pending: 'Waiting for an answer',
@@ -35,7 +35,9 @@ export default function MatchesPage() {
   // The tab lives in the address (?tab=requests) so "Back to Help" from a chat
   // returns to the request list.
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'requests' ? 'requests' : 'find'
+  // Teachers are helpers: they only answer requests, never look for a helper.
+  const isTeacher = profile.role === 'teacher'
+  const tab = isTeacher || params.get('tab') === 'requests' ? 'requests' : 'find'
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
   // Which helper's request form is open, so only one is open at a time.
   const [openFormFor, setOpenFormFor] = useState('')
@@ -132,28 +134,31 @@ export default function MatchesPage() {
 
   return (
     <section>
-      <h2>Help</h2>
-      <div className="seg" role="tablist" aria-label="Help">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'find'}
-          className={tab === 'find' ? 'seg-btn on' : 'seg-btn'}
-          onClick={() => showTab('find')}
-        >
-          Find a helper
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'requests'}
-          className={tab === 'requests' ? 'seg-btn on' : 'seg-btn'}
-          onClick={() => showTab('requests')}
-        >
-          Requests
-          {needsYou > 0 && <span className="count-badge">{needsYou}</span>}
-        </button>
-      </div>
+      <h2>{isTeacher ? 'Help requests' : 'Help'}</h2>
+      {isTeacher && <TeacherHelpHint subjects={profile.offers} />}
+      {!isTeacher && (
+        <div className="seg" role="tablist" aria-label="Help">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'find'}
+            className={tab === 'find' ? 'seg-btn on' : 'seg-btn'}
+            onClick={() => showTab('find')}
+          >
+            Find a helper
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'requests'}
+            className={tab === 'requests' ? 'seg-btn on' : 'seg-btn'}
+            onClick={() => showTab('requests')}
+          >
+            Requests
+            {needsYou > 0 && <span className="count-badge">{needsYou}</span>}
+          </button>
+        </div>
+      )}
 
       {tab === 'find' ? (
         <>
@@ -192,7 +197,7 @@ export default function MatchesPage() {
             </p>
           ) : (
             <div className="stack">
-              {helpers.map(({ user, score, youTeach }) => {
+              {helpers.map(({ user, isTeacher: helperIsTeacher, score, youTeach }) => {
                 const existing = latestRequest(user.id)
                 // After a resolved request you can ask again; after a decline you
                 // cannot, so nobody is pestered by someone who already said no.
@@ -204,12 +209,17 @@ export default function MatchesPage() {
                       <div>
                         <strong>
                           {user.displayName}{' '}
-                          <ReputationBadge score={score} subject={subject} />
+                          {helperIsTeacher ? (
+                            <span className="badge tier-teacher">Teacher</span>
+                          ) : (
+                            <ReputationBadge score={score} subject={subject} />
+                          )}
                           {youTeach.length > 0 && <span className="badge tier-trade">Trade</span>}
                         </strong>
                         <p className="meta">
-                          Grade {user.grade ?? '—'} · {score} helpful{' '}
-                          {score === 1 ? 'vote' : 'votes'} in {subject}
+                          {helperIsTeacher
+                            ? `Verified teacher · teaches ${subject}`
+                            : `Grade ${user.grade ?? '—'} · ${score} helpful ${score === 1 ? 'vote' : 'votes'} in ${subject}`}
                         </p>
                         {ratingSummary[user.id] && <HelpRating summary={ratingSummary[user.id]} />}
                       </div>
@@ -256,7 +266,9 @@ export default function MatchesPage() {
         </>
       ) : helpRequests.length === 0 ? (
         <p className="empty">
-          No requests yet. Find a helper and ask about a topic you are stuck on.
+          {isTeacher
+            ? 'No requests yet. Students will appear here when they ask you for help.'
+            : 'No requests yet. Find a helper and ask about a topic you are stuck on.'}
         </p>
       ) : (
         <>
@@ -305,7 +317,7 @@ function RequestCard({ item, meId, other, topic, canRate, responding, onRespond 
         <div>
           <strong>{toMe ? other?.displayName || 'Student' : `To ${other?.displayName || 'Student'}`}</strong>
           <p className="meta">
-            Grade {other?.grade ?? '—'} · {toMe ? 'asked' : 'sent'} {formatTimeAgo(item.createdAt)}
+            {roleLabel(other)} · {toMe ? 'asked' : 'sent'} {formatTimeAgo(item.createdAt)}
           </p>
         </div>
         <StatusPill status={item.status} forHelper={toMe} />
@@ -444,5 +456,23 @@ function RequestForm({ helper, subject, onSend, onError, onClose }) {
         </button>
       </div>
     </form>
+  )
+}
+
+// What a teacher sees above their requests: which subjects students can ask about.
+function TeacherHelpHint({ subjects }) {
+  if (subjects.length === 0) {
+    return (
+      <p className="hint">
+        Students cannot ask you for help yet.{' '}
+        <Link to="/profile">Add the subjects you teach</Link> on your Profile.
+      </p>
+    )
+  }
+  return (
+    <p className="hint">
+      Students can ask you for help with {subjects.join(', ')}. Accept a request to open a
+      chat. <Link to="/profile">Change subjects</Link>
+    </p>
   )
 }
