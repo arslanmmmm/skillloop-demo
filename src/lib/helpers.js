@@ -73,8 +73,30 @@ export function mapHelpRequest(row) {
     topic: row.topic,
     message: row.message,
     status: row.status,
+    resolvedAt: row.resolved_at,
+    resolvedBy: row.resolved_by,
     createdAt: row.created_at,
   }
+}
+
+export function mapHelpRating(row) {
+  return {
+    requestId: row.request_id,
+    raterId: row.rater_id,
+    helperId: row.helper_id,
+    rating: row.rating,
+    comment: row.comment,
+    createdAt: row.created_at,
+  }
+}
+
+// helper_rating_summary rows -> { [helperId]: { average, count } }
+export function buildRatingSummary(rows) {
+  const map = {}
+  for (const row of rows ?? []) {
+    map[row.helper_id] = { average: Number(row.average), count: row.ratings }
+  }
+  return map
 }
 
 export function mapMessage(row) {
@@ -176,6 +198,7 @@ export function friendlyError(err) {
   if (err?.code === '23505' || /duplicate key/i.test(message)) {
     if (/votes_/.test(message)) return 'You already voted on this.'
     if (/feedback_one_review/.test(message)) return 'You already rated this explanation.'
+    if (/help_ratings_pkey/.test(message)) return 'You already rated this help session.'
     if (/help_requests_one_pending/.test(message)) {
       return 'You already asked this helper about this subject. Wait for their answer.'
     }
@@ -185,6 +208,9 @@ export function friendlyError(err) {
     if (/title/.test(message)) return 'The title is too long. Keep it under 120 characters.'
     if (/body/.test(message)) return 'The text is too long. Keep it under 4000 characters.'
     return 'Some of what you entered is too long or not allowed. Please check it and try again.'
+  }
+  if (/row-level security.*"messages"/i.test(message)) {
+    return 'This chat is closed, so new messages cannot be sent.'
   }
   if (err?.code === '42501' || /row-level security/i.test(message)) {
     return 'You are not allowed to do that.'

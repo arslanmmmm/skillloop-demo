@@ -9,11 +9,13 @@ import {
 } from 'react'
 import { supabase } from '../lib/supabaseClient.js'
 import {
+  buildRatingSummary,
   buildReputationMap,
   friendlyError,
   getReputation,
   mapExplanation,
   mapFeedback,
+  mapHelpRating,
   mapHelpRequest,
   mapProfile,
   mapQuestion,
@@ -31,6 +33,9 @@ export function DataProvider({ children }) {
   const [feedback, setFeedback] = useState([])
   const [questions, setQuestions] = useState([])
   const [helpRequests, setHelpRequests] = useState([])
+  // Ratings I gave or received (RLS), plus everyone's averages.
+  const [helpRatings, setHelpRatings] = useState([])
+  const [ratingSummary, setRatingSummary] = useState({})
   const [reputationByUser, setReputationByUser] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -57,6 +62,8 @@ export function DataProvider({ children }) {
       feedbackRes,
       questionsRes,
       helpRes,
+      ratingsRes,
+      summaryRes,
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('display_name'),
       supabase.from('user_subjects').select('*'),
@@ -66,6 +73,8 @@ export function DataProvider({ children }) {
       supabase.from('feedback').select('*').order('created_at', { ascending: true }),
       supabase.from('questions').select('*').order('created_at', { ascending: false }),
       supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
+      supabase.from('help_ratings').select('*'),
+      supabase.from('helper_rating_summary').select('*'),
     ])
     const firstError =
       profilesRes.error ||
@@ -75,7 +84,9 @@ export function DataProvider({ children }) {
       reputationRes.error ||
       feedbackRes.error ||
       questionsRes.error ||
-      helpRes.error
+      helpRes.error ||
+      ratingsRes.error ||
+      summaryRes.error
     if (firstError) {
       setError(friendlyError(firstError))
       setLoading(false)
@@ -89,6 +100,8 @@ export function DataProvider({ children }) {
     setFeedback((feedbackRes.data ?? []).map(mapFeedback))
     setQuestions((questionsRes.data ?? []).map(mapQuestion))
     setHelpRequests((helpRes.data ?? []).map(mapHelpRequest))
+    setHelpRatings((ratingsRes.data ?? []).map(mapHelpRating))
+    setRatingSummary(buildRatingSummary(summaryRes.data))
     setReputationByUser(buildReputationMap(reputationRes.data))
     setLoading(false)
   }, [])
@@ -116,6 +129,30 @@ export function DataProvider({ children }) {
               ? list.map((item) => (item.id === mapped.id ? mapped : item))
               : [mapped, ...list],
           )
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [meId])
+
+  // Live ratings: when someone rates my help, show it and refresh the averages.
+  useEffect(() => {
+    if (!meId) return undefined
+    const channel = supabase
+      .channel(`help-ratings-${meId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'help_ratings' },
+        async (payload) => {
+          if (!payload.new?.request_id) return
+          const mapped = mapHelpRating(payload.new)
+          setHelpRatings((list) =>
+            list.some((item) => item.requestId === mapped.requestId) ? list : [...list, mapped],
+          )
+          const { data } = await supabase.from('helper_rating_summary').select('*')
+          if (data) setRatingSummary(buildRatingSummary(data))
         },
       )
       .subscribe()
@@ -292,10 +329,39 @@ export function DataProvider({ children }) {
       if (updateError) throw updateError
       const mapped = mapHelpRequest(data)
       setHelpRequests((list) => list.map((item) => (item.id === requestId ? mapped : item)))
-      showToast(status === 'accepted' ? 'You accepted this request.' : 'You declined this request.')
+      showToast(
+        {
+          accepted: 'You accepted this request.',
+          declined: 'You declined this request.',
+          resolved: 'Marked as resolved. The chat is now read-only.',
+        }[status],
+      )
       return mapped
     },
     [showToast],
+  )
+
+  // The database fills in the helper and checks the request is resolved and
+  // that only the student who asked can rate it.
+  const addHelpRating = useCallback(
+    async ({ requestId, helperId, rating, comment }) => {
+      const meId = profile?.id
+      if (!meId) throw new Error('Not signed in')
+      const { data, error: insertError } = await supabase
+        .from('help_ratings')
+        .insert({ request_id: requestId, rater_id: meId, helper_id: helperId, rating, comment })
+        .select('*')
+        .single()
+      if (insertError) throw insertError
+      const mapped = mapHelpRating(data)
+      setHelpRatings((list) => [...list, mapped])
+      // Refresh averages so the helper's profile and cards update straight away.
+      const { data: summary } = await supabase.from('helper_rating_summary').select('*')
+      if (summary) setRatingSummary(buildRatingSummary(summary))
+      showToast('Thanks! Your rating was saved.')
+      return mapped
+    },
+    [profile?.id, showToast],
   )
 
   const userById = useMemo(
@@ -324,6 +390,9 @@ export function DataProvider({ children }) {
       deleteFeedback,
       sendHelpRequest,
       respondToHelpRequest,
+      addHelpRating,
+      helpRatings,
+      ratingSummary,
       reputation: (userId, subject) =>
         getReputation(reputationByUser, userId, subject),
     }),
@@ -347,6 +416,9 @@ export function DataProvider({ children }) {
       deleteFeedback,
       sendHelpRequest,
       respondToHelpRequest,
+      addHelpRating,
+      helpRatings,
+      ratingSummary,
     ],
   )
 

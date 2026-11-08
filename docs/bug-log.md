@@ -26,3 +26,4 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 19 | No tab is highlighted on the chat page (it belongs to Help) | Real-phone screenshot (Step 2) | Low | Fixed |
 | 20 | Keyboard closes after every Send, so each message needs an extra tap on the text box; sent messages only appear after the server replies | Real-phone test by student tester (Step 2) | Medium | Fixed |
 | 21 | Text typed while the previous message was still sending was wiped when that send finished | Code review while fixing #20 (Step 2) | Medium | Fixed |
+| 22 | A student could create a help request that was already "accepted" and open a chat with anyone without the helper agreeing (the database did not check the status of new requests) | Code review of the request rules (Step 3) | High | Fixed (Step 3: new requests are forced to pending) |

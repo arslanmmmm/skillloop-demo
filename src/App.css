@@ -1207,6 +1207,89 @@ h2 {
   margin: 0;
 }
 
+/* Resolve + help rating */
+.status-resolved {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.resolve-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.resolve-bar.confirm {
+  justify-content: flex-end;
+  background: var(--accent-soft);
+  border-color: transparent;
+  font-size: 14px;
+}
+
+.resolve-bar.confirm span {
+  flex: 1 1 200px;
+}
+
+.resolve-bar .primary,
+.resolve-bar .cancel {
+  margin-top: 0;
+}
+
+.resolved-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.card .resolved-title,
+.card .rating-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.rating-comment {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.rate-help {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.rate-help .primary {
+  justify-self: start;
+}
+
+/* `.form label` would shrink the stars to 13px; keep them big enough to tap. */
+.rate-help .star-pick {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 32px;
+  font-weight: 400;
+  padding: 0;
+}
+
+.card .help-rating,
+.help-rating {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {

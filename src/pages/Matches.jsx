@@ -11,6 +11,7 @@ const STATUS_TEXT = {
   pending: 'Waiting for an answer',
   accepted: 'Accepted',
   declined: 'Declined',
+  resolved: 'Resolved',
 }
 
 export default function MatchesPage() {
@@ -26,6 +27,8 @@ export default function MatchesPage() {
     sendHelpRequest,
     respondToHelpRequest,
     showToast,
+    helpRatings,
+    ratingSummary,
   } = useAppData()
 
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
@@ -74,6 +77,15 @@ export default function MatchesPage() {
       responding.current = null
       setRespondingId(null)
     }
+  }
+
+  // The student who asked can rate once the request is resolved, one time only.
+  function canRate(item) {
+    return (
+      item.status === 'resolved' &&
+      item.requesterId === profile.id &&
+      !helpRatings.some((rating) => rating.requestId === item.id)
+    )
   }
 
   // Requests sent before topics existed may have a linked question instead.
@@ -132,7 +144,7 @@ export default function MatchesPage() {
                     topic={requestTopic(item)}
                     message={item.message}
                   />
-                  {item.status === 'accepted' && <ChatLink requestId={item.id} />}
+                  <ChatLink request={item} />
                   {item.status === 'pending' && (
                     <div className="actions">
                       <button
@@ -189,6 +201,7 @@ export default function MatchesPage() {
                       Grade {user.grade ?? '—'} · {score} helpful{' '}
                       {score === 1 ? 'vote' : 'votes'} in {subject}
                     </p>
+                    {ratingSummary[user.id] && <HelpRating summary={ratingSummary[user.id]} />}
                   </div>
                 </div>
                 {youTeach.length > 0 && (
@@ -202,7 +215,7 @@ export default function MatchesPage() {
                     {requestTopic(existing) && (
                       <span className="muted">Topic: {requestTopic(existing)}</span>
                     )}
-                    {existing.status === 'accepted' && <ChatLink requestId={existing.id} />}
+                    <ChatLink request={existing} canRate={canRate(existing)} />
                   </div>
                 ) : formOpen ? (
                   <RequestForm
@@ -250,7 +263,7 @@ export default function MatchesPage() {
                     topic={requestTopic(item)}
                     message={item.message}
                   />
-                  {item.status === 'accepted' && <ChatLink requestId={item.id} />}
+                  <ChatLink request={item} canRate={canRate(item)} />
                 </article>
               )
             })}
@@ -261,14 +274,32 @@ export default function MatchesPage() {
   )
 }
 
-// The helper sees "Needs your answer" where the requester sees "Waiting for an answer".
-function ChatLink({ requestId }) {
+// Only accepted and resolved requests have a chat; a resolved one the student
+// has not rated yet invites them to rate their helper.
+function ChatLink({ request, canRate = false }) {
+  if (request.status !== 'accepted' && request.status !== 'resolved') return null
+  const label =
+    request.status === 'accepted' ? 'Open chat' : canRate ? 'Rate your helper' : 'View chat'
   return (
-    <Link to={`/chat/${requestId}`} className="primary link-btn">
-      Open chat
+    <Link
+      to={`/chat/${request.id}`}
+      className={request.status === 'accepted' || canRate ? 'primary link-btn' : 'react link-btn'}
+    >
+      {label}
     </Link>
   )
 }
+
+function HelpRating({ summary }) {
+  return (
+    <p className="help-rating">
+      <span className="star on" aria-hidden="true">★</span> {summary.average.toFixed(1)} help rating
+      <span className="muted"> ({summary.count} {summary.count === 1 ? 'session' : 'sessions'})</span>
+    </p>
+  )
+}
+
+// The helper sees "Needs your answer" where the requester sees "Waiting for an answer".
 
 function StatusPill({ status, forHelper = false }) {
   const text = forHelper && status === 'pending' ? 'Needs your answer' : STATUS_TEXT[status]

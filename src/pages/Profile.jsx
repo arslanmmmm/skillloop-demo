@@ -7,7 +7,8 @@ import { initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
-  const { explanations, votes, loading, error, reputation } = useAppData()
+  const { explanations, votes, loading, error, reputation, ratingSummary } = useAppData()
+  const helpRating = ratingSummary[profile.id]
   const [editing, setEditing] = useState(false)
   const mine = explanations.filter((item) => item.authorId === profile.id)
 
@@ -22,6 +23,20 @@ export default function ProfilePage() {
           </p>
           <p className="hint tight">
             Credibility is computed from other students’ votes, not a self-score.
+          </p>
+          <p className="help-rating">
+            {helpRating ? (
+              <>
+                <span className="star on" aria-hidden="true">★</span>{' '}
+                {helpRating.average.toFixed(1)} help rating
+                <span className="muted">
+                  {' '}
+                  from {helpRating.count} {helpRating.count === 1 ? 'session' : 'sessions'}
+                </span>
+              </>
+            ) : (
+              <span className="muted">No help ratings yet. Help a classmate to get your first one.</span>
+            )}
           </p>
         </div>
         {!editing && (

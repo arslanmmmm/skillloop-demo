@@ -6,11 +6,13 @@ import { supabase } from '../lib/supabaseClient.js'
 import { formatTimeAgo, friendlyError, initials, mapMessage } from '../lib/helpers.js'
 
 const MESSAGE_MAX = 1000
+const COMMENT_MAX = 300
+const HELP_WORDS = ['', 'Not helpful', 'A little helpful', 'Helpful', 'Very helpful', 'Extremely helpful']
 
 export default function ChatPage() {
   const { requestId } = useParams()
   const { profile } = useAuth()
-  const { helpRequests, userById, loading } = useAppData()
+  const { helpRequests, userById, loading, helpRatings } = useAppData()
   const request = helpRequests.find((item) => item.id === requestId)
 
   if (loading) {
@@ -46,9 +48,29 @@ export default function ChatPage() {
         </p>
       </div>
 
-      {request.status === 'accepted' ? (
+      {request.status === 'accepted' && <ResolveControl request={request} />}
+
+      {request.status === 'resolved' && (
+        <ResolvedPanel
+          request={request}
+          isHelper={isHelper}
+          otherName={otherName}
+          resolvedByName={
+            request.resolvedBy === profile.id ? 'You' : userById[request.resolvedBy]?.displayName
+          }
+          rating={helpRatings.find((item) => item.requestId === request.id)}
+        />
+      )}
+
+      {request.status === 'accepted' || request.status === 'resolved' ? (
         // Keyed by request so its messages and draft reset when the chat changes.
-        <ChatThread key={request.id} request={request} meId={profile.id} userById={userById} />
+        <ChatThread
+          key={request.id}
+          request={request}
+          meId={profile.id}
+          userById={userById}
+          readOnly={request.status === 'resolved'}
+        />
       ) : (
         <p className="empty">
           {request.status === 'pending'
@@ -62,6 +84,169 @@ export default function ChatPage() {
   )
 }
 
+// Either student can close the chat once the question is answered.
+function ResolveControl({ request }) {
+  const { respondToHelpRequest, showToast } = useAppData()
+  const [asking, setAsking] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const saving = useRef(false)
+
+  async function resolve() {
+    if (saving.current) return
+    saving.current = true
+    setBusy(true)
+    try {
+      await respondToHelpRequest(request.id, 'resolved')
+    } catch (err) {
+      showToast(friendlyError(err))
+      setBusy(false)
+      setAsking(false)
+    } finally {
+      saving.current = false
+    }
+  }
+
+  if (!asking) {
+    return (
+      <div className="resolve-bar">
+        <span className="muted">Question answered?</span>
+        <button type="button" className="react" onClick={() => setAsking(true)}>
+          Mark as resolved
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="resolve-bar confirm" role="alert">
+      <span>Mark as resolved? The chat will become read-only for both of you.</span>
+      <button type="button" className="text-btn cancel" onClick={() => setAsking(false)} disabled={busy}>
+        Cancel
+      </button>
+      <button type="button" className="primary" onClick={resolve} disabled={busy}>
+        {busy ? 'Saving…' : 'Yes, resolve'}
+      </button>
+    </div>
+  )
+}
+
+function ResolvedPanel({ request, isHelper, otherName, resolvedByName, rating }) {
+  return (
+    <div className="card resolved-panel">
+      <p className="resolved-title">
+        <span className="status-pill status-resolved">Resolved</span>
+        <span className="muted">
+          {resolvedByName ? `${resolvedByName} marked this as resolved` : 'Marked as resolved'}
+          {request.resolvedAt ? ` · ${formatTimeAgo(request.resolvedAt)}` : ''}. The chat is read-only.
+        </span>
+      </p>
+      {rating ? (
+        <p className="rating-result">
+          <Stars value={rating.rating} />
+          <span>
+            {isHelper ? `${otherName} rated your help` : 'You rated this help'}:{' '}
+            <strong>{HELP_WORDS[rating.rating]}</strong>
+          </span>
+          {rating.comment && <q className="rating-comment">{rating.comment}</q>}
+        </p>
+      ) : isHelper ? (
+        <p className="muted">{otherName} can now rate how helpful you were.</p>
+      ) : (
+        <RateHelpForm request={request} helperName={otherName} />
+      )}
+    </div>
+  )
+}
+
+function RateHelpForm({ request, helperName }) {
+  const { addHelpRating, showToast } = useAppData()
+  // No default: a pre-selected rating nudges students toward that score.
+  const [rating, setRating] = useState(null)
+  const [hover, setHover] = useState(null)
+  const [comment, setComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const saving = useRef(false)
+  const shown = hover ?? rating
+
+  async function submit(event) {
+    event.preventDefault()
+    if (!rating || saving.current) return
+    saving.current = true
+    setBusy(true)
+    try {
+      await addHelpRating({
+        requestId: request.id,
+        helperId: request.helperId,
+        rating,
+        comment: comment.trim() || null,
+      })
+    } catch (err) {
+      showToast(friendlyError(err))
+      setBusy(false)
+    } finally {
+      saving.current = false
+    }
+  }
+
+  return (
+    <form className="rate-help form" onSubmit={submit}>
+      <p className="rate-label">How helpful was {helperName}?</p>
+      <div className="rate-row">
+        <div
+          className="star-picker"
+          role="radiogroup"
+          aria-label="Help rating"
+          onMouseLeave={() => setHover(null)}
+        >
+          {[1, 2, 3, 4, 5].map((value) => (
+            <label
+              key={value}
+              className={shown && value <= shown ? 'star-pick on' : 'star-pick'}
+              onMouseEnter={() => setHover(value)}
+              title={HELP_WORDS[value]}
+            >
+              <input
+                type="radio"
+                name={`help-${request.id}`}
+                value={value}
+                checked={rating === value}
+                onChange={() => setRating(value)}
+              />
+              ★
+            </label>
+          ))}
+        </div>
+        <span className="rate-word">{shown ? HELP_WORDS[shown] : 'Tap a star'}</span>
+      </div>
+      <label>
+        Comment (optional)
+        <textarea
+          rows={2}
+          maxLength={COMMENT_MAX}
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+          placeholder="What helped most?"
+        />
+      </label>
+      <button type="submit" className="primary" disabled={busy || !rating}>
+        {busy ? 'Saving…' : rating ? 'Send rating' : 'Pick a rating'}
+      </button>
+    </form>
+  )
+}
+
+function Stars({ value }) {
+  return (
+    <span className="stars" aria-label={`${value} out of 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <span key={n} className={n <= value ? 'star on' : 'star'} aria-hidden="true">
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function BackLink() {
   return (
     <Link to="/matches" className="back-link">
@@ -70,7 +255,7 @@ function BackLink() {
   )
 }
 
-function ChatThread({ request, meId, userById }) {
+function ChatThread({ request, meId, userById, readOnly }) {
   const [messages, setMessages] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -197,7 +382,11 @@ function ChatThread({ request, meId, userById }) {
         ) : loadError ? (
           <p className="form-error">{loadError}</p>
         ) : messages.length === 0 ? (
-          <p className="muted chat-empty">No messages yet. Say hi and explain where you are stuck.</p>
+          <p className="muted chat-empty">
+            {readOnly
+              ? 'No messages were sent in this chat.'
+              : 'No messages yet. Say hi and explain where you are stuck.'}
+          </p>
         ) : (
           messages.map((item) => {
             const mine = item.senderId === meId
@@ -219,32 +408,34 @@ function ChatThread({ request, meId, userById }) {
           })
         )}
       </div>
-      <form className="chat-composer" onSubmit={send}>
-        <textarea
-          ref={inputRef}
-          rows={2}
-          maxLength={MESSAGE_MAX}
-          value={draft}
-          onChange={(event) => changeDraft(event.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Write a message…"
-          aria-label="Message"
-        />
-        {/* preventDefault on press keeps focus (and the keyboard) in the text box. */}
-        <button
-          type="submit"
-          className="primary"
-          disabled={!draft.trim()}
-          onMouseDown={(event) => event.preventDefault()}
-        >
-          Send
-        </button>
-        {(sendError || draft.length > MESSAGE_MAX - 100) && (
-          <p className={sendError ? 'form-error chat-note' : 'muted chat-note'}>
-            {sendError || `${draft.length}/${MESSAGE_MAX}`}
-          </p>
-        )}
-      </form>
+      {readOnly ? null : (
+        <form className="chat-composer" onSubmit={send}>
+          <textarea
+            ref={inputRef}
+            rows={2}
+            maxLength={MESSAGE_MAX}
+            value={draft}
+            onChange={(event) => changeDraft(event.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Write a message…"
+            aria-label="Message"
+          />
+          {/* preventDefault on press keeps focus (and the keyboard) in the text box. */}
+          <button
+            type="submit"
+            className="primary"
+            disabled={!draft.trim()}
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            Send
+          </button>
+          {(sendError || draft.length > MESSAGE_MAX - 100) && (
+            <p className={sendError ? 'form-error chat-note' : 'muted chat-note'}>
+              {sendError || `${draft.length}/${MESSAGE_MAX}`}
+            </p>
+          )}
+        </form>
+      )}
     </>
   )
 }
