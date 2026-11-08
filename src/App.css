@@ -1431,6 +1431,179 @@ h2 {
   margin-top: 12px;
 }
 
+/* Step 5: report and block */
+.safety-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.safety-panel {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+  min-width: 0;
+}
+
+.card .safety-title,
+.safety-title {
+  margin: 0;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.card .safety-hint,
+.safety-hint {
+  margin: 4px 0 0;
+}
+
+.block-confirm .form-actions {
+  margin-top: 12px;
+}
+
+.primary.danger {
+  background: var(--danger);
+}
+
+.reason-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.reason-list legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form .reason {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.form .reason.on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.form .reason input {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.chat-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 100%;
+}
+
+.chat-head .block-confirm {
+  flex: 1 1 100%;
+  margin-top: 0;
+}
+
+.blocked-note,
+.report-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--chip);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.report-banner span {
+  flex: 1 1 200px;
+}
+
+.report-banner .cancel {
+  margin: 0;
+}
+
+.msg .msg-report {
+  display: block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.chat-log .safety-panel {
+  margin-top: 0;
+  background: var(--surface);
+}
+
+.blocked-card {
+  margin-top: 12px;
+}
+
+.blocked-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-card .report-reason {
+  background: #fef3f2;
+  color: var(--danger);
+}
+
+.card .report-people {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.report-details {
+  display: block;
+  margin-top: 8px;
+  font-size: 14px;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+
+.report-snapshot {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--line);
+  border-radius: 6px;
+  background: var(--chip);
+  font-size: 14px;
+}
+
+.card .report-snapshot p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {
@@ -1501,8 +1674,14 @@ h2 {
   .tab,
   .seg-btn,
   button.primary,
-  .react {
+  .react,
+  .text-btn.cancel {
     min-height: 44px;
+  }
+
+  /* Report and Block wrap under the other buttons instead of being pushed right. */
+  .safety-actions {
+    margin-left: 0;
   }
 
   .tab {

@@ -29,6 +29,7 @@ export default function MatchesPage() {
     showToast,
     helpRatings,
     ratingSummary,
+    blockedIds,
   } = useAppData()
 
   // The tab lives in the address (?tab=requests) so "Back to Help" from a chat
@@ -44,9 +45,13 @@ export default function MatchesPage() {
   const responding = useRef(null)
   const [respondingId, setRespondingId] = useState(null)
 
+  // Students I blocked are left out: the database would refuse the request anyway.
   const helpers = useMemo(
-    () => findHelpers(users, reputationByUser, profile, subject),
-    [users, reputationByUser, profile, subject],
+    () =>
+      findHelpers(users, reputationByUser, profile, subject).filter(
+        ({ user }) => !blockedIds.has(user.id),
+      ),
+    [users, reputationByUser, profile, subject, blockedIds],
   )
   const outgoing = useMemo(
     () => helpRequests.filter((item) => item.requesterId === profile.id),

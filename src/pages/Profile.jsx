@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import EditProfile from '../components/EditProfile.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
-import { initials, voteCount } from '../lib/helpers.js'
+import { formatPostedAt, friendlyError, initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
@@ -92,6 +92,7 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+      <BlockedList />
       <h3 className="subhead">Explanations by {profile.displayName}</h3>
       {loading ? (
         <p className="hint">Loading…</p>
@@ -114,5 +115,60 @@ export default function ProfilePage() {
         </div>
       )}
     </section>
+  )
+}
+
+// Only the blocker sees this list; the blocked students are never told.
+function BlockedList() {
+  const { blocks, userById, unblockUser, showToast } = useAppData()
+  const [busyId, setBusyId] = useState('')
+  const saving = useRef(false)
+
+  async function handleUnblock(userId, name) {
+    if (saving.current) return
+    saving.current = true
+    setBusyId(userId)
+    try {
+      await unblockUser(userId, name)
+    } catch (err) {
+      showToast(friendlyError(err))
+    } finally {
+      saving.current = false
+      setBusyId('')
+    }
+  }
+
+  return (
+    <div className="card blocked-card">
+      <h3>Blocked students</h3>
+      <p className="hint">
+        You do not see their explanations, and you cannot send each other help requests or
+        messages. They are not told.
+      </p>
+      {blocks.length === 0 ? (
+        <p className="muted">You have not blocked anyone.</p>
+      ) : (
+        <ul className="plain blocked-list">
+          {blocks.map((item) => {
+            const name = userById[item.blockedId]?.displayName || 'Student'
+            return (
+              <li key={item.blockedId}>
+                <span>
+                  {name} <span className="muted">· since {formatPostedAt(item.createdAt)}</span>
+                </span>
+                <button
+                  type="button"
+                  className="react"
+                  disabled={busyId === item.blockedId}
+                  onClick={() => handleUnblock(item.blockedId, name)}
+                >
+                  {busyId === item.blockedId ? 'Unblocking…' : 'Unblock'}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </div>
   )
 }

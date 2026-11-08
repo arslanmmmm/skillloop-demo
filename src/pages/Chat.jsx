@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { supabase } from '../lib/supabaseClient.js'
 import { formatTimeAgo, friendlyError, initials, mapMessage } from '../lib/helpers.js'
+import BlockConfirm from '../components/BlockConfirm.jsx'
+import ReportForm from '../components/ReportForm.jsx'
 
 const MESSAGE_MAX = 1000
 const COMMENT_MAX = 300
@@ -12,8 +14,10 @@ const HELP_WORDS = ['', 'Not helpful', 'A little helpful', 'Helpful', 'Very help
 export default function ChatPage() {
   const { requestId } = useParams()
   const { profile } = useAuth()
-  const { helpRequests, userById, loading, helpRatings } = useAppData()
+  const { helpRequests, userById, loading, helpRatings, blockedIds } = useAppData()
   const request = helpRequests.find((item) => item.id === requestId)
+  // '' | 'report' (pick a message to report) | 'block' (confirm blocking)
+  const [panel, setPanel] = useState('')
 
   if (loading) {
     return <p className="hint">Loading chat…</p>
@@ -31,6 +35,9 @@ export default function ChatPage() {
   const isHelper = request.helperId === profile.id
   const other = userById[isHelper ? request.requesterId : request.helperId]
   const otherName = other?.displayName || 'Student'
+  const otherId = isHelper ? request.requesterId : request.helperId
+  const blocked = blockedIds.has(otherId)
+  const hasChat = request.status === 'accepted' || request.status === 'resolved'
 
   return (
     <section className="chat">
@@ -46,7 +53,39 @@ export default function ChatPage() {
         <p className="chat-topic">
           <span className="badge">{request.subject}</span> {request.topic || 'No topic'}
         </p>
+        <div className="chat-tools">
+          {hasChat && (
+            <button
+              type="button"
+              className={panel === 'report' ? 'react on' : 'react'}
+              aria-expanded={panel === 'report'}
+              onClick={() => setPanel(panel === 'report' ? '' : 'report')}
+            >
+              Report a message
+            </button>
+          )}
+          {!blocked && (
+            <button
+              type="button"
+              className={panel === 'block' ? 'react on' : 'react'}
+              aria-expanded={panel === 'block'}
+              onClick={() => setPanel(panel === 'block' ? '' : 'block')}
+            >
+              Block
+            </button>
+          )}
+        </div>
+        {panel === 'block' && !blocked && (
+          <BlockConfirm user={other ?? { id: otherId, displayName: otherName }} onClose={() => setPanel('')} />
+        )}
       </div>
+
+      {blocked && (
+        <p className="blocked-note" role="note">
+          You blocked {otherName}, so no new messages can be sent here.{' '}
+          <Link to="/profile">Unblock on your Profile</Link>
+        </p>
+      )}
 
       {request.status === 'accepted' && <ResolveControl request={request} />}
 
@@ -69,7 +108,9 @@ export default function ChatPage() {
           request={request}
           meId={profile.id}
           userById={userById}
-          readOnly={request.status === 'resolved'}
+          readOnly={request.status === 'resolved' || blocked}
+          reportMode={panel === 'report'}
+          onReportDone={() => setPanel('')}
         />
       ) : (
         <p className="empty">
@@ -255,7 +296,7 @@ function BackLink() {
   )
 }
 
-function ChatThread({ request, meId, userById, readOnly }) {
+function ChatThread({ request, meId, userById, readOnly, reportMode, onReportDone }) {
   const [messages, setMessages] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -266,6 +307,9 @@ function ChatThread({ request, meId, userById, readOnly }) {
   const inputRef = useRef(null)
   const tempCount = useRef(0)
   const firstScroll = useRef(true)
+  // The message whose report form is open (only in report mode).
+  const [reportingId, setReportingId] = useState('')
+  const canReportAny = messages.some((item) => item.senderId !== meId && !item.pending)
 
   function changeDraft(value) {
     draftRef.current = value
@@ -376,6 +420,18 @@ function ChatThread({ request, meId, userById, readOnly }) {
       <p className="chat-safety">
         Keep the chat about schoolwork. Never share your phone number, address or passwords.
       </p>
+      {reportMode && (
+        <div className="report-banner" role="status">
+          <span>
+            {canReportAny
+              ? 'Tap “Report” under the message you want to report.'
+              : 'There are no messages from the other student to report.'}
+          </span>
+          <button type="button" className="text-btn cancel" onClick={onReportDone}>
+            Done
+          </button>
+        </div>
+      )}
       <div className="chat-log" aria-live="polite">
         {!loaded ? (
           <p className="muted">Loading messages…</p>
@@ -391,19 +447,34 @@ function ChatThread({ request, meId, userById, readOnly }) {
           messages.map((item) => {
             const mine = item.senderId === meId
             return (
-              <div
-                key={item.id}
-                className={`msg${mine ? ' mine' : ''}${item.pending ? ' pending' : ''}`}
-              >
-                {!mine && (
-                  <span className="msg-name">{userById[item.senderId]?.displayName || 'Student'}</span>
+              <Fragment key={item.id}>
+                <div className={`msg${mine ? ' mine' : ''}${item.pending ? ' pending' : ''}`}>
+                  {!mine && (
+                    <span className="msg-name">{userById[item.senderId]?.displayName || 'Student'}</span>
+                  )}
+                  {/* Plain text on purpose: links are shown, never clickable. */}
+                  <p className="msg-text">{item.body}</p>
+                  <span className="msg-time">
+                    {item.pending ? 'Sending…' : formatTimeAgo(item.createdAt)}
+                  </span>
+                  {reportMode && !mine && reportingId !== item.id && (
+                    <button type="button" className="react msg-report" onClick={() => setReportingId(item.id)}>
+                      Report
+                    </button>
+                  )}
+                </div>
+                {reportMode && reportingId === item.id && (
+                  <ReportForm
+                    targetType="message"
+                    targetId={item.id}
+                    what="message"
+                    onClose={() => {
+                      setReportingId('')
+                      onReportDone()
+                    }}
+                  />
                 )}
-                {/* Plain text on purpose: links are shown, never clickable. */}
-                <p className="msg-text">{item.body}</p>
-                <span className="msg-time">
-                  {item.pending ? 'Sending…' : formatTimeAgo(item.createdAt)}
-                </span>
-              </div>
+              </Fragment>
             )
           })
         )}

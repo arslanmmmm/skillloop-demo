@@ -113,6 +113,32 @@ export function mapMessage(row) {
   }
 }
 
+export function mapReport(row) {
+  return {
+    id: row.id,
+    reporterId: row.reporter_id,
+    targetType: row.target_type,
+    messageId: row.message_id,
+    explanationId: row.explanation_id,
+    reportedUserId: row.reported_user_id,
+    reason: row.reason,
+    details: row.details,
+    snapshotTitle: row.snapshot_title,
+    snapshot: row.snapshot,
+    status: row.status,
+    handledBy: row.handled_by,
+    handledAt: row.handled_at,
+    createdAt: row.created_at,
+  }
+}
+
+export function mapBlock(row) {
+  return {
+    blockedId: row.blocked_id,
+    createdAt: row.created_at,
+  }
+}
+
 export function feedbackStats(feedback, explanationId) {
   const reviews = (feedback ?? []).filter(
     (item) => item.explanationId === explanationId && !item.parentId,
@@ -204,6 +230,7 @@ const TEXT_LIMITS = {
   help_requests_topic_length: { label: 'The topic', max: 120 },
   help_requests_message_length: { label: 'Your message', max: 1000 },
   help_ratings_comment_check: { label: 'Your comment', max: 300 },
+  reports_details_check: { label: 'Your note', max: 500 },
 }
 
 // Turns database and network errors into short messages a student understands.
@@ -217,6 +244,8 @@ export function friendlyError(err) {
     if (/votes_/.test(message)) return 'You already voted on this.'
     if (/feedback_one_review/.test(message)) return 'You already rated this explanation.'
     if (/help_ratings_pkey/.test(message)) return 'You already rated this help session.'
+    if (/reports_one_per/.test(message)) return 'You already reported this. A teacher will look at it.'
+    if (/blocks_pkey/.test(message)) return 'You already blocked this student.'
     if (/help_requests_one_pending/.test(message)) {
       return 'You already asked this helper about this subject. Wait for their answer.'
     }

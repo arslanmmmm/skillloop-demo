@@ -3,7 +3,9 @@ import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import { useVote } from '../hooks/useVote.js'
 import { feedbackStats, formatPostedAt, initials, voteCount } from '../lib/helpers.js'
+import BlockConfirm from './BlockConfirm.jsx'
 import FeedbackThread from './FeedbackThread.jsx'
+import ReportForm from './ReportForm.jsx'
 import ReputationBadge from './ReputationBadge.jsx'
 
 export default function FeedCard({ item, author }) {
@@ -16,6 +18,10 @@ export default function FeedCard({ item, author }) {
     toggleVote,
   })
   const [open, setOpen] = useState(false)
+  // Which safety panel is open under the post: 'report', 'block' or ''.
+  const [panel, setPanel] = useState('')
+  // Teachers use the Review page instead of reporting or blocking.
+  const canReport = !isOwn && profile?.role !== 'teacher'
   const helpful = voteCount(votes, item.id)
   const score = reputation(item.authorId, item.subject)
   const stats = feedbackStats(feedback, item.id)
@@ -61,7 +67,38 @@ export default function FeedCard({ item, author }) {
             {stats.average.toFixed(1)} clarity
           </span>
         )}
+        {canReport && (
+          <span className="safety-actions">
+            <button
+              type="button"
+              className={panel === 'report' ? 'react on' : 'react'}
+              aria-expanded={panel === 'report'}
+              onClick={() => setPanel(panel === 'report' ? '' : 'report')}
+            >
+              Report
+            </button>
+            {author?.role !== 'teacher' && (
+              <button
+                type="button"
+                className={panel === 'block' ? 'react on' : 'react'}
+                aria-expanded={panel === 'block'}
+                onClick={() => setPanel(panel === 'block' ? '' : 'block')}
+              >
+                Block
+              </button>
+            )}
+          </span>
+        )}
       </div>
+      {panel === 'report' && (
+        <ReportForm
+          targetType="explanation"
+          targetId={item.id}
+          what="explanation"
+          onClose={() => setPanel('')}
+        />
+      )}
+      {panel === 'block' && <BlockConfirm user={author} onClose={() => setPanel('')} />}
       {open && <FeedbackThread explanationId={item.id} authorId={item.authorId} />}
     </article>
   )

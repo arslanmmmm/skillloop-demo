@@ -20,7 +20,7 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 13 | Help requests and their status do not update until the page is reloaded | Two-account test (Step 1) | Medium | Fixed (Step 2, Supabase Realtime) |
 | 14 | Double-click on Reply posted the same reply twice (no database rule stops duplicate replies) | Double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 15 | Double-click on Comment sent two ratings; raw duplicate-key error | Double-click test (Step 1) | Low | Fixed (Step 1) |
-| 16 | Database accepts a help request to a student who does not teach that subject (app never offers it, but the API allows it) | Two-student database test (Step 1) | Low | Open – Step 5 (safety) |
+| 16 | Database accepts a help request to a student who does not teach that subject (app never offers it, but the API allows it) | Two-student database test (Step 1) | Low | Fixed (Step 5: database rejects it, check_help_request_safety) |
 | 17 | Load-error banner showed raw text ("JWT issued at future") and a developer-only setup hint to students | Two-account test after Supabase project was restored (Step 1) | Low | Fixed |
 | 18 | On iPhone, opening the keyboard in a long chat makes the top bar and message box jump; the box hides behind the keyboard for 1–2 s; the chat also jumps when a new message arrives | Real-phone screen recordings (Step 2) | Medium | Fixed |
 | 19 | No tab is highlighted on the chat page (it belongs to Help) | Real-phone screenshot (Step 2) | Low | Fixed |

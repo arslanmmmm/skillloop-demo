@@ -16,9 +16,11 @@ import {
   mapExplanation,
   mapFeedback,
   mapHelpRating,
+  mapBlock,
   mapHelpRequest,
   mapProfile,
   mapQuestion,
+  mapReport,
   mapVote,
 } from '../lib/helpers.js'
 import { useAuth } from './AuthContext.jsx'
@@ -37,6 +39,8 @@ export function DataProvider({ children }) {
   const [helpRatings, setHelpRatings] = useState([])
   const [ratingSummary, setRatingSummary] = useState({})
   const [reputationByUser, setReputationByUser] = useState({})
+  // Students I blocked (RLS only returns my own blocks).
+  const [blocks, setBlocks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
@@ -64,6 +68,7 @@ export function DataProvider({ children }) {
       helpRes,
       ratingsRes,
       summaryRes,
+      blocksRes,
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('display_name'),
       supabase.from('user_subjects').select('*'),
@@ -75,6 +80,7 @@ export function DataProvider({ children }) {
       supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('help_ratings').select('*'),
       supabase.from('helper_rating_summary').select('*'),
+      supabase.from('blocks').select('*').order('created_at', { ascending: false }),
     ])
     const firstError =
       profilesRes.error ||
@@ -86,7 +92,8 @@ export function DataProvider({ children }) {
       questionsRes.error ||
       helpRes.error ||
       ratingsRes.error ||
-      summaryRes.error
+      summaryRes.error ||
+      blocksRes.error
     if (firstError) {
       setError(friendlyError(firstError))
       setLoading(false)
@@ -103,6 +110,7 @@ export function DataProvider({ children }) {
     setHelpRatings((ratingsRes.data ?? []).map(mapHelpRating))
     setRatingSummary(buildRatingSummary(summaryRes.data))
     setReputationByUser(buildReputationMap(reputationRes.data))
+    setBlocks((blocksRes.data ?? []).map(mapBlock))
     setLoading(false)
   }, [])
 
@@ -250,6 +258,87 @@ export function DataProvider({ children }) {
     [],
   )
 
+  // Report a chat message or an explanation. The database copies the reported
+  // text and checks that the student can see it and did not write it.
+  const reportContent = useCallback(
+    async ({ targetType, targetId, reason, details }) => {
+      const { error: insertError } = await supabase.from('reports').insert({
+        reporter_id: profile?.id,
+        target_type: targetType,
+        message_id: targetType === 'message' ? targetId : null,
+        explanation_id: targetType === 'explanation' ? targetId : null,
+        reason,
+        details: details || null,
+      })
+      if (insertError) throw insertError
+      showToast('Thanks for reporting. A teacher will look at it.')
+    },
+    [profile?.id, showToast],
+  )
+
+  // Teachers only (RLS): open reports, newest first.
+  const fetchOpenReports = useCallback(async () => {
+    const { data, error: loadError } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+    if (loadError) throw loadError
+    return (data ?? []).map(mapReport)
+  }, [])
+
+  const setReportStatus = useCallback(async (reportId, status) => {
+    const { data, error: updateError } = await supabase
+      .from('reports')
+      .update({ status })
+      .eq('id', reportId)
+      .select('*')
+      .single()
+    if (updateError) throw updateError
+    return mapReport(data)
+  }, [])
+
+  // The blocked student is not told. Their posts disappear from my feed and
+  // neither of us can send the other requests or chat messages.
+  const blockUser = useCallback(
+    async (userId, name) => {
+      const { data, error: insertError } = await supabase
+        .from('blocks')
+        .insert({ blocker_id: profile?.id, blocked_id: userId })
+        .select('*')
+        .single()
+      if (insertError) throw insertError
+      setBlocks((list) => [mapBlock(data), ...list])
+      setExplanations((list) => list.filter((item) => item.authorId !== userId))
+      showToast(`You blocked ${name}. You can undo this on your Profile.`)
+    },
+    [profile?.id, showToast],
+  )
+
+  const unblockUser = useCallback(
+    async (userId, name) => {
+      const { error: deleteError } = await supabase
+        .from('blocks')
+        .delete()
+        .eq('blocker_id', profile?.id)
+        .eq('blocked_id', userId)
+      if (deleteError) throw deleteError
+      setBlocks((list) => list.filter((item) => item.blockedId !== userId))
+      showToast(`You unblocked ${name}.`)
+      // Bring their posts back into the feed.
+      const { data, error: loadError } = await supabase
+        .from('explanations')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (loadError) {
+        showToast('Unblocked. Reload the page to see their posts again.')
+        return
+      }
+      setExplanations((data ?? []).map(mapExplanation))
+    },
+    [profile?.id, showToast],
+  )
+
   const addExplanation = useCallback(
     async ({ subject, title, text }) => {
       const meId = profile?.id
@@ -381,6 +470,8 @@ export function DataProvider({ children }) {
     [profile?.id, showToast],
   )
 
+  const blockedIds = useMemo(() => new Set(blocks.map((item) => item.blockedId)), [blocks])
+
   const userById = useMemo(
     () => Object.fromEntries(users.map((item) => [item.id, item])),
     [users],
@@ -411,6 +502,13 @@ export function DataProvider({ children }) {
       addHelpRating,
       helpRatings,
       ratingSummary,
+      blocks,
+      blockedIds,
+      reportContent,
+      fetchOpenReports,
+      setReportStatus,
+      blockUser,
+      unblockUser,
       reputation: (userId, subject) =>
         getReputation(reputationByUser, userId, subject),
     }),
@@ -438,6 +536,13 @@ export function DataProvider({ children }) {
       addHelpRating,
       helpRatings,
       ratingSummary,
+      blocks,
+      blockedIds,
+      reportContent,
+      fetchOpenReports,
+      setReportStatus,
+      blockUser,
+      unblockUser,
     ],
   )
 

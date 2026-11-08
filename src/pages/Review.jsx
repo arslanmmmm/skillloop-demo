@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import ReportsPanel from '../components/ReportsPanel.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
@@ -19,6 +21,9 @@ export default function ReviewPage() {
   const { explanations, userById, votes, loading, error } = useAppData()
   const [subject, setSubject] = useState('all')
   const [status, setStatus] = useState('all')
+  // The tab lives in the address (?tab=reports) like on the Help page.
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'reports' ? 'reports' : 'posts'
 
   if (profile.role !== 'teacher') {
     return (
@@ -36,9 +41,40 @@ export default function ReviewPage() {
       (status === 'all' || item.reviewStatus === status),
   )
 
+  const tabs = (
+    <div className="seg" role="tablist" aria-label="Review">
+      {[
+        ['posts', 'Explanations'],
+        ['reports', 'Reports'],
+      ].map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={tab === value}
+          className={tab === value ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => setParams(value === 'reports' ? { tab: 'reports' } : {}, { replace: true })}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (tab === 'reports') {
+    return (
+      <section>
+        <h2>Review</h2>
+        {tabs}
+        <ReportsPanel />
+      </section>
+    )
+  }
+
   return (
     <section>
-      <h2>Review explanations</h2>
+      <h2>Review</h2>
+      {tabs}
       <p className="hint">
         Verify correct posts, flag ones that need correcting with a short note, or
         hide a post from students. Every action can be undone.
