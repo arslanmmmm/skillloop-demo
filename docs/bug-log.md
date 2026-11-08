@@ -27,3 +27,5 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 20 | Keyboard closes after every Send, so each message needs an extra tap on the text box; sent messages only appear after the server replies | Real-phone test by student tester (Step 2) | Medium | Fixed |
 | 21 | Text typed while the previous message was still sending was wiped when that send finished | Code review while fixing #20 (Step 2) | Medium | Fixed |
 | 22 | A student could create a help request that was already "accepted" and open a chat with anyone without the helper agreeing (the database did not check the status of new requests) | Code review of the request rules (Step 3) | High | Fixed (Step 3: new requests are forced to pending) |
+| 23 | After a request was resolved, the student could not ask the same helper about the same subject again (the card kept showing the old request) | Student tester, two-account test (Step 3) | Medium | Fixed |
+| 24 | Help page became a long mixed list: every request ever sent or received was shown above and below the helper search | Student tester, two-account test (Step 3) | Medium | Fixed |

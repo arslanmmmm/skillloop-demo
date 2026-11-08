@@ -249,7 +249,7 @@ function Stars({ value }) {
 
 function BackLink() {
   return (
-    <Link to="/matches" className="back-link">
+    <Link to="/matches?tab=requests" className="back-link">
       ← Back to Help
     </Link>
   )

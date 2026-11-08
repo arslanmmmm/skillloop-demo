@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FeedSkeleton } from '../components/FeedCard.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
@@ -31,9 +31,14 @@ export default function MatchesPage() {
     ratingSummary,
   } = useAppData()
 
+  // The tab lives in the address (?tab=requests) so "Back to Help" from a chat
+  // returns to the request list.
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'requests' ? 'requests' : 'find'
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
   // Which helper's request form is open, so only one is open at a time.
   const [openFormFor, setOpenFormFor] = useState('')
+  const [showPast, setShowPast] = useState(false)
   // The request being accepted or declined. The ref blocks a second click in
   // the same instant; the state disables both buttons until the save finishes.
   const responding = useRef(null)
@@ -43,14 +48,31 @@ export default function MatchesPage() {
     () => findHelpers(users, reputationByUser, profile, subject),
     [users, reputationByUser, profile, subject],
   )
-  const incoming = useMemo(
-    () => helpRequests.filter((item) => item.helperId === profile.id),
-    [helpRequests, profile.id],
-  )
   const outgoing = useMemo(
     () => helpRequests.filter((item) => item.requesterId === profile.id),
     [helpRequests, profile.id],
   )
+
+  // The student who asked can rate once the request is resolved, one time only.
+  function canRate(item) {
+    return (
+      item.status === 'resolved' &&
+      item.requesterId === profile.id &&
+      !helpRatings.some((rating) => rating.requestId === item.id)
+    )
+  }
+
+  // Requests sorted by what the student has to do next. helpRequests is newest first.
+  const groups = {
+    answer: helpRequests.filter((item) => item.helperId === profile.id && item.status === 'pending'),
+    chats: helpRequests.filter((item) => item.status === 'accepted'),
+    rate: outgoing.filter(canRate),
+    waiting: outgoing.filter((item) => item.status === 'pending'),
+    past: helpRequests.filter(
+      (item) => (item.status === 'resolved' || item.status === 'declined') && !canRate(item),
+    ),
+  }
+  const needsYou = groups.answer.length + groups.rate.length
 
   // Subjects you said you need help with come first; any subject can be picked.
   const subjectOptions = [
@@ -58,7 +80,11 @@ export default function MatchesPage() {
     ...SUBJECTS.filter((item) => !profile.needs.includes(item)),
   ]
 
-  // helpRequests is newest first, so this is the latest request to that helper.
+  function showTab(next) {
+    setParams(next === 'requests' ? { tab: 'requests' } : {}, { replace: true })
+  }
+
+  // The latest request to that helper in this subject.
   function latestRequest(helperId) {
     return outgoing.find(
       (item) => item.helperId === helperId && item.subject === subject,
@@ -79,198 +105,229 @@ export default function MatchesPage() {
     }
   }
 
-  // The student who asked can rate once the request is resolved, one time only.
-  function canRate(item) {
-    return (
-      item.status === 'resolved' &&
-      item.requesterId === profile.id &&
-      !helpRatings.some((rating) => rating.requestId === item.id)
-    )
-  }
-
   // Requests sent before topics existed may have a linked question instead.
   function requestTopic(item) {
     return item.topic || questions.find((q) => q.id === item.questionId)?.body || ''
   }
 
+  function card(item) {
+    return (
+      <RequestCard
+        key={item.id}
+        item={item}
+        meId={profile.id}
+        other={userById[item.helperId === profile.id ? item.requesterId : item.helperId]}
+        topic={requestTopic(item)}
+        canRate={canRate(item)}
+        responding={respondingId === item.id}
+        onRespond={respond}
+      />
+    )
+  }
+
   return (
     <section>
-      <h2>Ask for help</h2>
-      <p className="hint">
-        Pick a subject to see everyone who teaches it, ranked by helpful votes in
-        that subject, then by how close their grade is to yours. Then tell a
-        helper which topic you are stuck on.
-      </p>
-
-      <div className="card form">
-        <label>
-          Subject
-          <select
-            value={subject}
-            onChange={(event) => {
-              setSubject(event.target.value)
-              setOpenFormFor('')
-            }}
-          >
-            {subjectOptions.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
-        </label>
+      <h2>Help</h2>
+      <div className="seg" role="tablist" aria-label="Help">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'find'}
+          className={tab === 'find' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => showTab('find')}
+        >
+          Find a helper
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'requests'}
+          className={tab === 'requests' ? 'seg-btn on' : 'seg-btn'}
+          onClick={() => showTab('requests')}
+        >
+          Requests
+          {needsYou > 0 && <span className="count-badge">{needsYou}</span>}
+        </button>
       </div>
 
-      {incoming.length > 0 && (
+      {tab === 'find' ? (
         <>
-          <h3 className="subhead">Requests for you</h3>
-          <div className="stack">
-            {incoming.map((item) => {
-              const who = userById[item.requesterId]
-              return (
-                <article key={item.id} className="card request-card">
-                  <div className="card-head">
-                    <span className="avatar sm">{initials(who?.displayName)}</span>
-                    <div>
-                      <strong>{who?.displayName || 'Student'}</strong>
-                      <p className="meta">
-                        Grade {who?.grade ?? '—'} · asked {formatTimeAgo(item.createdAt)}
-                      </p>
-                    </div>
-                    <StatusPill status={item.status} forHelper />
-                  </div>
-                  <RequestDetails
-                    subject={item.subject}
-                    topic={requestTopic(item)}
-                    message={item.message}
-                  />
-                  <ChatLink request={item} />
-                  {item.status === 'pending' && (
-                    <div className="actions">
-                      <button
-                        type="button"
-                        className="primary"
-                        disabled={respondingId === item.id}
-                        onClick={() => respond(item.id, 'accepted')}
-                      >
-                        Accept
-                      </button>
-                      <button
-                        type="button"
-                        className="react"
-                        disabled={respondingId === item.id}
-                        onClick={() => respond(item.id, 'declined')}
-                      >
-                        Decline
-                      </button>
-                    </div>
-                  )}
-                </article>
-              )
-            })}
+          <p className="hint">
+            Pick a subject to see everyone who teaches it, ranked by helpful votes in
+            that subject, then by how close their grade is to yours.
+          </p>
+          <div className="card form">
+            <label>
+              Subject
+              <select
+                value={subject}
+                onChange={(event) => {
+                  setSubject(event.target.value)
+                  setOpenFormFor('')
+                }}
+              >
+                {subjectOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        </>
-      )}
 
-      <h3 className="subhead">Who can help with {subject}</h3>
-      {loading ? (
-        <FeedSkeleton />
-      ) : error ? (
-        <p className="empty">Could not load helpers.</p>
-      ) : helpers.length === 0 ? (
+          <h3 className="subhead">Who can help with {subject}</h3>
+          {loading ? (
+            <FeedSkeleton />
+          ) : error ? (
+            <p className="empty">Could not load helpers.</p>
+          ) : helpers.length === 0 ? (
+            <p className="empty">
+              Nobody teaches {subject} yet. Ask a classmate to sign up and pick it as
+              a subject they can teach.
+            </p>
+          ) : (
+            <div className="stack">
+              {helpers.map(({ user, score, youTeach }) => {
+                const existing = latestRequest(user.id)
+                // After a resolved request you can ask again; after a decline you
+                // cannot, so nobody is pestered by someone who already said no.
+                const canAsk = !existing || existing.status === 'resolved'
+                return (
+                  <article key={user.id} className="card">
+                    <div className="card-head">
+                      <span className="avatar">{initials(user.displayName)}</span>
+                      <div>
+                        <strong>
+                          {user.displayName}{' '}
+                          <ReputationBadge score={score} subject={subject} />
+                          {youTeach.length > 0 && <span className="badge tier-trade">Trade</span>}
+                        </strong>
+                        <p className="meta">
+                          Grade {user.grade ?? '—'} · {score} helpful{' '}
+                          {score === 1 ? 'vote' : 'votes'} in {subject}
+                        </p>
+                        {ratingSummary[user.id] && <HelpRating summary={ratingSummary[user.id]} />}
+                      </div>
+                    </div>
+                    {youTeach.length > 0 && (
+                      <p className="muted trade-note">
+                        You can teach them back: {youTeach.join(', ')}
+                      </p>
+                    )}
+                    {existing && (
+                      <div className="sent-row">
+                        <StatusPill status={existing.status} />
+                        <span className="muted">
+                          {existing.status === 'declined'
+                            ? `${user.displayName} declined your last request.`
+                            : `Topic: ${requestTopic(existing) || '—'}`}
+                        </span>
+                        <ChatLink request={existing} canRate={canRate(existing)} />
+                      </div>
+                    )}
+                    {canAsk &&
+                      (openFormFor === user.id ? (
+                        <RequestForm
+                          helper={user}
+                          subject={subject}
+                          onSend={sendHelpRequest}
+                          onError={showToast}
+                          onClose={() => setOpenFormFor('')}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className={existing ? 'react ask-again' : 'primary'}
+                          onClick={() => setOpenFormFor(user.id)}
+                        >
+                          {existing ? 'Ask again' : 'Ask for help'}
+                        </button>
+                      ))}
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </>
+      ) : helpRequests.length === 0 ? (
         <p className="empty">
-          Nobody teaches {subject} yet. Ask a classmate to sign up and pick it as
-          a subject they can teach.
+          No requests yet. Find a helper and ask about a topic you are stuck on.
         </p>
       ) : (
-        <div className="stack">
-          {helpers.map(({ user, score, youTeach }) => {
-            const existing = latestRequest(user.id)
-            const formOpen = openFormFor === user.id
-            return (
-              <article key={user.id} className="card">
-                <div className="card-head">
-                  <span className="avatar">{initials(user.displayName)}</span>
-                  <div>
-                    <strong>
-                      {user.displayName}{' '}
-                      <ReputationBadge score={score} subject={subject} />
-                      {youTeach.length > 0 && <span className="badge tier-trade">Trade</span>}
-                    </strong>
-                    <p className="meta">
-                      Grade {user.grade ?? '—'} · {score} helpful{' '}
-                      {score === 1 ? 'vote' : 'votes'} in {subject}
-                    </p>
-                    {ratingSummary[user.id] && <HelpRating summary={ratingSummary[user.id]} />}
-                  </div>
-                </div>
-                {youTeach.length > 0 && (
-                  <p className="muted trade-note">
-                    You can teach them back: {youTeach.join(', ')}
-                  </p>
-                )}
-                {existing ? (
-                  <div className="sent-row">
-                    <StatusPill status={existing.status} />
-                    {requestTopic(existing) && (
-                      <span className="muted">Topic: {requestTopic(existing)}</span>
-                    )}
-                    <ChatLink request={existing} canRate={canRate(existing)} />
-                  </div>
-                ) : formOpen ? (
-                  <RequestForm
-                    helper={user}
-                    subject={subject}
-                    onSend={sendHelpRequest}
-                    onError={showToast}
-                    onClose={() => setOpenFormFor('')}
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => setOpenFormFor(user.id)}
-                  >
-                    Ask for help
-                  </button>
-                )}
-              </article>
-            )
-          })}
-        </div>
-      )}
-
-      {outgoing.length > 0 && (
         <>
-          <h3 className="subhead">Your requests</h3>
-          <div className="stack">
-            {outgoing.map((item) => {
-              const helper = userById[item.helperId]
-              return (
-                <article key={item.id} className="card request-card">
-                  <div className="card-head">
-                    <span className="avatar sm">{initials(helper?.displayName)}</span>
-                    <div>
-                      <strong>To {helper?.displayName || 'Student'}</strong>
-                      <p className="meta">
-                        Grade {helper?.grade ?? '—'} · sent {formatTimeAgo(item.createdAt)}
-                      </p>
-                    </div>
-                    <StatusPill status={item.status} />
-                  </div>
-                  <RequestDetails
-                    subject={item.subject}
-                    topic={requestTopic(item)}
-                    message={item.message}
-                  />
-                  <ChatLink request={item} canRate={canRate(item)} />
-                </article>
-              )
-            })}
-          </div>
+          <RequestGroup title="Needs your answer" items={groups.answer} render={card} />
+          <RequestGroup title="Open chats" items={groups.chats} render={card} />
+          <RequestGroup title="Rate your helper" items={groups.rate} render={card} />
+          <RequestGroup title="Waiting for an answer" items={groups.waiting} render={card} />
+          {groups.past.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="text-btn past-toggle"
+                aria-expanded={showPast}
+                onClick={() => setShowPast((value) => !value)}
+              >
+                {showPast ? 'Hide' : 'Show'} past requests ({groups.past.length})
+              </button>
+              {showPast && <div className="stack">{groups.past.map(card)}</div>}
+            </>
+          )}
         </>
       )}
     </section>
+  )
+}
+
+function RequestGroup({ title, items, render }) {
+  if (items.length === 0) return null
+  return (
+    <>
+      <h3 className="subhead">
+        {title} <span className="muted">({items.length})</span>
+      </h3>
+      <div className="stack">{items.map(render)}</div>
+    </>
+  )
+}
+
+// One request, from either side: requests sent to me have Accept / Decline.
+function RequestCard({ item, meId, other, topic, canRate, responding, onRespond }) {
+  const toMe = item.helperId === meId
+  return (
+    <article className="card request-card">
+      <div className="card-head">
+        <span className="avatar sm">{initials(other?.displayName)}</span>
+        <div>
+          <strong>{toMe ? other?.displayName || 'Student' : `To ${other?.displayName || 'Student'}`}</strong>
+          <p className="meta">
+            Grade {other?.grade ?? '—'} · {toMe ? 'asked' : 'sent'} {formatTimeAgo(item.createdAt)}
+          </p>
+        </div>
+        <StatusPill status={item.status} forHelper={toMe} />
+      </div>
+      <RequestDetails subject={item.subject} topic={topic} message={item.message} />
+      <ChatLink request={item} canRate={canRate} />
+      {toMe && item.status === 'pending' && (
+        <div className="actions">
+          <button
+            type="button"
+            className="primary"
+            disabled={responding}
+            onClick={() => onRespond(item.id, 'accepted')}
+          >
+            Accept
+          </button>
+          <button
+            type="button"
+            className="react"
+            disabled={responding}
+            onClick={() => onRespond(item.id, 'declined')}
+          >
+            Decline
+          </button>
+        </div>
+      )}
+    </article>
   )
 }
 
@@ -300,7 +357,6 @@ function HelpRating({ summary }) {
 }
 
 // The helper sees "Needs your answer" where the requester sees "Waiting for an answer".
-
 function StatusPill({ status, forHelper = false }) {
   const text = forHelper && status === 'pending' ? 'Needs your answer' : STATUS_TEXT[status]
   return <span className={`status-pill status-${status}`}>{text}</span>
