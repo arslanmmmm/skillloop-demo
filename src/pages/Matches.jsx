@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { FeedSkeleton } from '../components/FeedCard.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { findHelpers, formatTimeAgo, initials } from '../lib/helpers.js'
+import { findHelpers, formatTimeAgo, friendlyError, initials } from '../lib/helpers.js'
 
 const STATUS_TEXT = {
   pending: 'Waiting for an answer',
@@ -30,6 +30,10 @@ export default function MatchesPage() {
   const [subject, setSubject] = useState(profile.needs[0] || SUBJECTS[0])
   // Which helper's request form is open, so only one is open at a time.
   const [openFormFor, setOpenFormFor] = useState('')
+  // The request being accepted or declined. The ref blocks a second click in
+  // the same instant; the state disables both buttons until the save finishes.
+  const responding = useRef(null)
+  const [respondingId, setRespondingId] = useState(null)
 
   const helpers = useMemo(
     () => findHelpers(users, reputationByUser, profile, subject),
@@ -58,10 +62,16 @@ export default function MatchesPage() {
   }
 
   async function respond(requestId, status) {
+    if (responding.current) return
+    responding.current = requestId
+    setRespondingId(requestId)
     try {
       await respondToHelpRequest(requestId, status)
     } catch (err) {
-      showToast(err.message || 'Could not update request')
+      showToast(friendlyError(err))
+    } finally {
+      responding.current = null
+      setRespondingId(null)
     }
   }
 
@@ -126,6 +136,7 @@ export default function MatchesPage() {
                       <button
                         type="button"
                         className="primary"
+                        disabled={respondingId === item.id}
                         onClick={() => respond(item.id, 'accepted')}
                       >
                         Accept
@@ -133,6 +144,7 @@ export default function MatchesPage() {
                       <button
                         type="button"
                         className="react"
+                        disabled={respondingId === item.id}
                         onClick={() => respond(item.id, 'declined')}
                       >
                         Decline
@@ -267,11 +279,14 @@ function RequestForm({ helper, subject, onSend, onError, onClose }) {
   const [topic, setTopic] = useState('')
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  // Blocks a second submit in the same instant, before `busy` disables the button.
+  const sending = useRef(false)
 
   async function submit(event) {
     event.preventDefault()
     const cleanTopic = topic.trim()
-    if (!cleanTopic) return
+    if (!cleanTopic || sending.current) return
+    sending.current = true
     setBusy(true)
     try {
       await onSend({
@@ -283,8 +298,10 @@ function RequestForm({ helper, subject, onSend, onError, onClose }) {
       })
       onClose()
     } catch (err) {
-      onError(err.message || 'Could not send request')
+      onError(friendlyError(err))
       setBusy(false)
+    } finally {
+      sending.current = false
     }
   }
 

@@ -164,7 +164,12 @@ export function friendlyError(err) {
     return 'Could not reach the server. Check your internet connection and try again.'
   }
   if (err?.code === '23505' || /duplicate key/i.test(message)) {
-    return /votes_/.test(message) ? 'You already voted on this.' : 'That was already saved.'
+    if (/votes_/.test(message)) return 'You already voted on this.'
+    if (/feedback_one_review/.test(message)) return 'You already rated this explanation.'
+    if (/help_requests_one_pending/.test(message)) {
+      return 'You already asked this helper about this subject. Wait for their answer.'
+    }
+    return 'That was already saved.'
   }
   if (err?.code === '23514' || /violates check constraint/i.test(message)) {
     if (/title/.test(message)) return 'The title is too long. Keep it under 120 characters.'

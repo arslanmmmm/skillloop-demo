@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabaseClient.js'
-import { mapProfile, subjectRows } from '../lib/helpers.js'
+import { friendlyError, mapProfile, subjectRows } from '../lib/helpers.js'
 
 const AuthContext = createContext(null)
 
@@ -37,7 +37,7 @@ export function AuthProvider({ children }) {
       return mapped
     } catch (err) {
       console.error(err)
-      setProfileError(err.message || 'Could not load your profile.')
+      setProfileError(friendlyError(err))
       setProfile(null)
       return null
     } finally {

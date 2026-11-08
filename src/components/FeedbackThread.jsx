@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { feedbackStats, formatTimeAgo, initials } from '../lib/helpers.js'
+import { feedbackStats, formatTimeAgo, friendlyError, initials } from '../lib/helpers.js'
 
 const RATING_WORDS = ['', 'Very confusing', 'Confusing', 'Okay', 'Clear', 'Very clear']
 
@@ -150,15 +150,20 @@ function CommentBody({
 function DeleteControl({ replyCount, onConfirm, onError }) {
   const [asking, setAsking] = useState(false)
   const [busy, setBusy] = useState(false)
+  const deleting = useRef(false)
 
   async function confirm() {
+    if (deleting.current) return
+    deleting.current = true
     setBusy(true)
     try {
       await onConfirm()
     } catch (err) {
-      onError(err.message || 'Could not delete comment')
+      onError(friendlyError(err))
       setBusy(false)
       setAsking(false)
+    } finally {
+      deleting.current = false
     }
   }
 
@@ -206,12 +211,15 @@ function ReviewForm({ me, explanationId, onSave, onError }) {
   const [rating, setRating] = useState(null)
   const [hover, setHover] = useState(null)
   const [busy, setBusy] = useState(false)
+  // Blocks a second submit in the same instant, before `busy` disables the button.
+  const sending = useRef(false)
   const shown = hover ?? rating
 
   async function submit(event) {
     event.preventDefault()
     const text = body.trim()
-    if (!text || !rating) return
+    if (!text || !rating || sending.current) return
+    sending.current = true
     setBusy(true)
     try {
       await onSave({
@@ -222,8 +230,9 @@ function ReviewForm({ me, explanationId, onSave, onError }) {
       setBody('')
       setRating(null)
     } catch (err) {
-      onError(err.message || 'Could not save review')
+      onError(friendlyError(err))
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
@@ -283,11 +292,14 @@ function ReplyForm({ me, explanationId, parentId, onSave, onError }) {
   const [body, setBody] = useState('')
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Replies have no database uniqueness rule, so this is what stops duplicates.
+  const sending = useRef(false)
 
   async function submit(event) {
     event.preventDefault()
     const text = body.trim()
-    if (!text) return
+    if (!text || sending.current) return
+    sending.current = true
     setBusy(true)
     try {
       await onSave({
@@ -298,8 +310,9 @@ function ReplyForm({ me, explanationId, parentId, onSave, onError }) {
       setBody('')
       setOpen(false)
     } catch (err) {
-      onError(err.message || 'Could not save reply')
+      onError(friendlyError(err))
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }

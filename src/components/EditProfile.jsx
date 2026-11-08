@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
-import { toggleItem, toggleOffer, validateProfileChoices } from '../lib/helpers.js'
+import { friendlyError, toggleItem, toggleOffer, validateProfileChoices } from '../lib/helpers.js'
 import { GradePicker, SubjectPicker } from './ProfilePickers.jsx'
 
 export default function EditProfile({ onDone }) {
@@ -35,7 +35,7 @@ export default function EditProfile({ onDone }) {
       showToast('Profile updated.')
       onDone()
     } catch (err) {
-      setMessage(err.message || 'Could not save your profile.')
+      setMessage(friendlyError(err))
       setBusy(false)
     }
   }

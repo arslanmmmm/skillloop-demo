@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
+import { friendlyError } from '../lib/helpers.js'
 
 export default function LoginPage() {
   const { session, loading, signIn, signUp } = useAuth()
@@ -41,7 +42,7 @@ export default function LoginPage() {
         })
       }
     } catch (err) {
-      setMessage(err.message)
+      setMessage(friendlyError(err))
     } finally {
       setBusy(false)
     }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { toggleItem, toggleOffer } from '../lib/helpers.js'
+import { friendlyError, toggleItem, toggleOffer } from '../lib/helpers.js'
 import { GradePicker, SubjectPicker } from './ProfilePickers.jsx'
 
 const STEPS = [
@@ -66,7 +66,7 @@ export default function CompleteProfile({ onSave, existing }) {
         needs,
       })
     } catch (err) {
-      setMessage(err.message)
+      setMessage(friendlyError(err))
     } finally {
       setBusy(false)
     }
