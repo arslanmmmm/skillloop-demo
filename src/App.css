@@ -1604,6 +1604,27 @@ h2 {
   overflow: hidden;
 }
 
+/* Step 6: feed filter and paged lists */
+.feed-filter {
+  margin-bottom: 16px;
+}
+
+.load-more {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.load-more .react {
+  min-width: 160px;
+}
+
+.page-loading {
+  padding: 24px 16px;
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {
@@ -1675,7 +1696,8 @@ h2 {
   .seg-btn,
   button.primary,
   .react,
-  .text-btn.cancel {
+  .text-btn.cancel,
+  .form select {
     min-height: 44px;
   }
 

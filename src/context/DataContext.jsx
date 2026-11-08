@@ -23,6 +23,13 @@ import {
   mapReport,
   mapVote,
 } from '../lib/helpers.js'
+import {
+  fetchExplanationPage,
+  fetchExplanationsByIds,
+  mergeById,
+  newestFirst,
+  pageKey,
+} from '../lib/explanationPages.js'
 import { useAuth } from './AuthContext.jsx'
 
 const DataContext = createContext(null)
@@ -30,7 +37,12 @@ const DataContext = createContext(null)
 export function DataProvider({ children }) {
   const { profile } = useAuth()
   const [users, setUsers] = useState([])
+  // Explanations (with their votes and comments) loaded so far, from every
+  // list the student opened. Lists load pages on demand (see explanationPages).
   const [explanations, setExplanations] = useState([])
+  // Per list: { cursor, hasMore, error } keyed by pageKey(filters).
+  const [explanationPages, setExplanationPages] = useState({})
+  const pagesInFlight = useRef(new Set())
   const [votes, setVotes] = useState([])
   const [feedback, setFeedback] = useState([])
   const [questions, setQuestions] = useState([])
@@ -60,10 +72,7 @@ export function DataProvider({ children }) {
     const [
       profilesRes,
       subjectsRes,
-      explanationsRes,
-      votesRes,
       reputationRes,
-      feedbackRes,
       questionsRes,
       helpRes,
       ratingsRes,
@@ -72,10 +81,7 @@ export function DataProvider({ children }) {
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('display_name'),
       supabase.from('user_subjects').select('*'),
-      supabase.from('explanations').select('*').order('created_at', { ascending: false }),
-      supabase.from('votes').select('*'),
       supabase.from('subject_reputation').select('*'),
-      supabase.from('feedback').select('*').order('created_at', { ascending: true }),
       supabase.from('questions').select('*').order('created_at', { ascending: false }),
       supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
       supabase.from('help_ratings').select('*'),
@@ -85,10 +91,7 @@ export function DataProvider({ children }) {
     const firstError =
       profilesRes.error ||
       subjectsRes.error ||
-      explanationsRes.error ||
-      votesRes.error ||
       reputationRes.error ||
-      feedbackRes.error ||
       questionsRes.error ||
       helpRes.error ||
       ratingsRes.error ||
@@ -102,9 +105,6 @@ export function DataProvider({ children }) {
     setUsers(
       (profilesRes.data ?? []).map((row) => mapProfile(row, subjectsRes.data ?? [])),
     )
-    setExplanations((explanationsRes.data ?? []).map(mapExplanation))
-    setVotes((votesRes.data ?? []).map(mapVote))
-    setFeedback((feedbackRes.data ?? []).map(mapFeedback))
     setQuestions((questionsRes.data ?? []).map(mapQuestion))
     setHelpRequests((helpRes.data ?? []).map(mapHelpRequest))
     setHelpRatings((ratingsRes.data ?? []).map(mapHelpRating))
@@ -117,6 +117,55 @@ export function DataProvider({ children }) {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  const mergeExplanationData = useCallback((result) => {
+    setExplanations((list) => mergeById(list, result.explanations, newestFirst))
+    setVotes((list) => mergeById(list, result.votes, () => 0))
+    setFeedback((list) =>
+      mergeById(list, result.feedback, (a, b) => a.createdAt.localeCompare(b.createdAt)),
+    )
+  }, [])
+
+  // Loads the next page of one list (the first page when `before` is null).
+  const loadExplanationPage = useCallback(
+    async (filters, before = null) => {
+      const key = pageKey(filters)
+      if (pagesInFlight.current.has(key)) return
+      pagesInFlight.current.add(key)
+      try {
+        const result = await fetchExplanationPage(filters, before)
+        mergeExplanationData(result)
+        setExplanationPages((pages) => ({
+          ...pages,
+          [key]: { cursor: result.cursor, hasMore: result.hasMore, error: '' },
+        }))
+      } catch (err) {
+        setExplanationPages((pages) => ({
+          ...pages,
+          [key]: { cursor: before, hasMore: true, ...pages[key], error: friendlyError(err) },
+        }))
+      } finally {
+        pagesInFlight.current.delete(key)
+      }
+    },
+    [mergeExplanationData],
+  )
+
+  // Specific posts, e.g. the ones in teacher reports. Throws on failure.
+  const loadExplanationsByIds = useCallback(
+    async (ids) => {
+      mergeExplanationData(await fetchExplanationsByIds(ids))
+    },
+    [mergeExplanationData],
+  )
+
+  // Forget every loaded page; lists on screen load their first page again.
+  const resetExplanations = useCallback(() => {
+    setExplanations([])
+    setVotes([])
+    setFeedback([])
+    setExplanationPages({})
+  }, [])
 
   // Live updates for help requests: a new request or an accept/decline shows
   // up without a reload. Realtime applies the same RLS, so each student only
@@ -325,18 +374,10 @@ export function DataProvider({ children }) {
       if (deleteError) throw deleteError
       setBlocks((list) => list.filter((item) => item.blockedId !== userId))
       showToast(`You unblocked ${name}.`)
-      // Bring their posts back into the feed.
-      const { data, error: loadError } = await supabase
-        .from('explanations')
-        .select('*')
-        .order('created_at', { ascending: false })
-      if (loadError) {
-        showToast('Unblocked. Reload the page to see their posts again.')
-        return
-      }
-      setExplanations((data ?? []).map(mapExplanation))
+      // Their posts come back when the lists reload.
+      resetExplanations()
     },
-    [profile?.id, showToast],
+    [profile?.id, showToast, resetExplanations],
   )
 
   const addExplanation = useCallback(
@@ -509,6 +550,9 @@ export function DataProvider({ children }) {
       setReportStatus,
       blockUser,
       unblockUser,
+      explanationPages,
+      loadExplanationPage,
+      loadExplanationsByIds,
       reputation: (userId, subject) =>
         getReputation(reputationByUser, userId, subject),
     }),
@@ -543,6 +587,9 @@ export function DataProvider({ children }) {
       setReportStatus,
       blockUser,
       unblockUser,
+      explanationPages,
+      loadExplanationPage,
+      loadExplanationsByIds,
     ],
   )
 

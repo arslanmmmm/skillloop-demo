@@ -6,7 +6,7 @@ import { formatTimeAgo, friendlyError } from '../lib/helpers.js'
 // Teacher-only list of open reports, newest first. Reported chat messages are
 // read from the copy saved in the report; teachers cannot read chats.
 export default function ReportsPanel() {
-  const { fetchOpenReports } = useAppData()
+  const { fetchOpenReports, loadExplanationsByIds } = useAppData()
   const [reports, setReports] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -15,8 +15,11 @@ export default function ReportsPanel() {
 
   useEffect(() => {
     let alive = true
+    // Load the reported posts too: the feed only loads a page at a time.
     fetchOpenReports()
-      .then((rows) => {
+      .then(async (rows) => {
+        const ids = [...new Set(rows.map((item) => item.explanationId).filter(Boolean))]
+        await loadExplanationsByIds(ids)
         if (!alive) return
         setReports(rows)
         setLoadError('')
@@ -30,7 +33,7 @@ export default function ReportsPanel() {
     return () => {
       alive = false
     }
-  }, [fetchOpenReports, reloadKey])
+  }, [fetchOpenReports, loadExplanationsByIds, reloadKey])
 
   if (!loaded) return <p className="hint">Loading reports…</p>
   if (loadError) {

@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import LoadMore from '../components/LoadMore.jsx'
 import ReportsPanel from '../components/ReportsPanel.jsx'
 import { SUBJECTS } from '../config/subjects.js'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
+import { usePagedExplanations } from '../hooks/usePagedExplanations.js'
 import { formatPostedAt, friendlyError, voteCount } from '../lib/helpers.js'
 
 const STATUS_LABELS = {
@@ -15,12 +17,9 @@ const STATUS_LABELS = {
 const NOTE_MAX = 500
 
 // Teacher-only page. The route is shown to everyone who types the address,
-// but the database only lets teachers change review fields.
+// but the database only lets teachers change review fields or read reports.
 export default function ReviewPage() {
   const { profile } = useAuth()
-  const { explanations, userById, votes, loading, error } = useAppData()
-  const [subject, setSubject] = useState('all')
-  const [status, setStatus] = useState('all')
   // The tab lives in the address (?tab=reports) like on the Help page.
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') === 'reports' ? 'reports' : 'posts'
@@ -34,47 +33,42 @@ export default function ReviewPage() {
     )
   }
 
-  // explanations is already newest first.
-  const shown = explanations.filter(
-    (item) =>
-      (subject === 'all' || item.subject === subject) &&
-      (status === 'all' || item.reviewStatus === status),
-  )
-
-  const tabs = (
-    <div className="seg" role="tablist" aria-label="Review">
-      {[
-        ['posts', 'Explanations'],
-        ['reports', 'Reports'],
-      ].map(([value, label]) => (
-        <button
-          key={value}
-          type="button"
-          role="tab"
-          aria-selected={tab === value}
-          className={tab === value ? 'seg-btn on' : 'seg-btn'}
-          onClick={() => setParams(value === 'reports' ? { tab: 'reports' } : {}, { replace: true })}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-
-  if (tab === 'reports') {
-    return (
-      <section>
-        <h2>Review</h2>
-        {tabs}
-        <ReportsPanel />
-      </section>
-    )
-  }
-
   return (
     <section>
       <h2>Review</h2>
-      {tabs}
+      <div className="seg" role="tablist" aria-label="Review">
+        {[
+          ['posts', 'Explanations'],
+          ['reports', 'Reports'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={tab === value}
+            className={tab === value ? 'seg-btn on' : 'seg-btn'}
+            onClick={() => setParams(value === 'reports' ? { tab: 'reports' } : {}, { replace: true })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'reports' ? <ReportsPanel /> : <ExplanationsTab />}
+    </section>
+  )
+}
+
+function ExplanationsTab() {
+  const { userById, votes } = useAppData()
+  const [subject, setSubject] = useState('all')
+  const [status, setStatus] = useState('all')
+  const { items, isLoading, error, hasMore, loadingMore, loadMore } = usePagedExplanations({
+    subject,
+    status,
+  })
+
+  return (
+    <>
       <p className="hint">
         Verify correct posts, flag ones that need correcting with a short note, or
         hide a post from students. Every action can be undone.
@@ -104,28 +98,32 @@ export default function ReviewPage() {
         </label>
       </div>
 
-      <h3 className="subhead">
-        {shown.length} {shown.length === 1 ? 'explanation' : 'explanations'}
-      </h3>
-      {loading ? (
+      {isLoading ? (
         <p className="hint">Loading…</p>
-      ) : error ? (
-        <p className="empty">Could not load explanations.</p>
-      ) : shown.length === 0 ? (
+      ) : items.length === 0 && !error ? (
         <p className="empty">Nothing matches these filters.</p>
       ) : (
-        <div className="stack">
-          {shown.map((item) => (
-            <ReviewCard
-              key={item.id}
-              item={item}
-              author={userById[item.authorId]}
-              helpful={voteCount(votes, item.id)}
-            />
-          ))}
-        </div>
+        <>
+          <h3 className="subhead">
+            Showing {items.length} {items.length === 1 ? 'explanation' : 'explanations'}
+            {hasMore ? ', newest first' : ''}
+          </h3>
+          <div className="stack">
+            {items.map((item) => (
+              <ReviewCard
+                key={item.id}
+                item={item}
+                author={userById[item.authorId]}
+                helpful={voteCount(votes, item.id)}
+              />
+            ))}
+          </div>
+        </>
       )}
-    </section>
+      {!isLoading && (
+        <LoadMore hasMore={hasMore} loadingMore={loadingMore} error={error} onLoadMore={loadMore} />
+      )}
+    </>
   )
 }
 

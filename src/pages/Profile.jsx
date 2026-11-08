@@ -1,16 +1,25 @@
 import { useRef, useState } from 'react'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
+import { usePagedExplanations } from '../hooks/usePagedExplanations.js'
 import EditProfile from '../components/EditProfile.jsx'
+import LoadMore from '../components/LoadMore.jsx'
 import ReputationBadge from '../components/ReputationBadge.jsx'
 import { formatPostedAt, friendlyError, initials, voteCount } from '../lib/helpers.js'
 
 export default function ProfilePage() {
   const { profile } = useAuth()
-  const { explanations, votes, loading, error, reputation, ratingSummary } = useAppData()
+  const { votes, reputation, ratingSummary } = useAppData()
   const helpRating = ratingSummary[profile.id]
   const [editing, setEditing] = useState(false)
-  const mine = explanations.filter((item) => item.authorId === profile.id)
+  const {
+    items: mine,
+    isLoading,
+    error,
+    hasMore,
+    loadingMore,
+    loadMore,
+  } = usePagedExplanations({ authorId: profile.id })
 
   return (
     <section>
@@ -94,11 +103,9 @@ export default function ProfilePage() {
       )}
       <BlockedList />
       <h3 className="subhead">Explanations by {profile.displayName}</h3>
-      {loading ? (
+      {isLoading ? (
         <p className="hint">Loading…</p>
-      ) : error ? (
-        <p className="empty">Could not load your explanations.</p>
-      ) : mine.length === 0 ? (
+      ) : mine.length === 0 && !error ? (
         <p className="empty">None yet — publish one from Write.</p>
       ) : (
         <div className="stack">
@@ -113,6 +120,9 @@ export default function ProfilePage() {
             </article>
           ))}
         </div>
+      )}
+      {!isLoading && (
+        <LoadMore hasMore={hasMore} loadingMore={loadingMore} error={error} onLoadMore={loadMore} />
       )}
     </section>
   )

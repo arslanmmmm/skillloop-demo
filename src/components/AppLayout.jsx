@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
@@ -110,7 +111,10 @@ export default function AppLayout() {
             )}
           </p>
         )}
-        <Outlet />
+        {/* Pages load on demand; keep the header visible while one downloads. */}
+        <Suspense fallback={<p className="hint">Loading…</p>}>
+          <Outlet />
+        </Suspense>
       </main>
       {toast && (
         <div className="toast" role="status">
