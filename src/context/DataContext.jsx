@@ -1,25 +1,16 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabaseClient.js'
+import { fetchCoreData } from '../lib/coreData.js'
 import {
   buildRatingSummary,
   buildReputationMap,
   friendlyError,
   getReputation,
+  mapBlock,
   mapExplanation,
   mapFeedback,
   mapHelpRating,
-  mapBlock,
   mapHelpRequest,
-  mapProfile,
-  mapQuestion,
   mapReport,
   mapVote,
 } from '../lib/helpers.js'
@@ -30,9 +21,8 @@ import {
   newestFirst,
   pageKey,
 } from '../lib/explanationPages.js'
-import { useAuth } from './AuthContext.jsx'
-
-const DataContext = createContext(null)
+import { useAuth } from '../hooks/useAuth.js'
+import { DataContext } from './contexts.js'
 
 export function DataProvider({ children }) {
   const { profile } = useAuth()
@@ -66,57 +56,45 @@ export function DataProvider({ children }) {
     toastTimer.current = window.setTimeout(() => setToast(''), 2800)
   }, [])
 
-  const loadAll = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    const [
-      profilesRes,
-      subjectsRes,
-      reputationRes,
-      questionsRes,
-      helpRes,
-      ratingsRes,
-      summaryRes,
-      blocksRes,
-    ] = await Promise.all([
-      supabase.from('profiles').select('*').order('display_name'),
-      supabase.from('user_subjects').select('*'),
-      supabase.from('subject_reputation').select('*'),
-      supabase.from('questions').select('*').order('created_at', { ascending: false }),
-      supabase.from('help_requests').select('*').order('created_at', { ascending: false }),
-      supabase.from('help_ratings').select('*'),
-      supabase.from('helper_rating_summary').select('*'),
-      supabase.from('blocks').select('*').order('created_at', { ascending: false }),
-    ])
-    const firstError =
-      profilesRes.error ||
-      subjectsRes.error ||
-      reputationRes.error ||
-      questionsRes.error ||
-      helpRes.error ||
-      ratingsRes.error ||
-      summaryRes.error ||
-      blocksRes.error
-    if (firstError) {
-      setError(friendlyError(firstError))
-      setLoading(false)
-      return
-    }
-    setUsers(
-      (profilesRes.data ?? []).map((row) => mapProfile(row, subjectsRes.data ?? [])),
-    )
-    setQuestions((questionsRes.data ?? []).map(mapQuestion))
-    setHelpRequests((helpRes.data ?? []).map(mapHelpRequest))
-    setHelpRatings((ratingsRes.data ?? []).map(mapHelpRating))
-    setRatingSummary(buildRatingSummary(summaryRes.data))
-    setReputationByUser(buildReputationMap(reputationRes.data))
-    setBlocks((blocksRes.data ?? []).map(mapBlock))
+  const applyCoreData = useCallback((data) => {
+    setUsers(data.users)
+    setQuestions(data.questions)
+    setHelpRequests(data.helpRequests)
+    setHelpRatings(data.helpRatings)
+    setRatingSummary(data.ratingSummary)
+    setReputationByUser(data.reputationByUser)
+    setBlocks(data.blocks)
     setLoading(false)
   }, [])
 
+  const failCoreData = useCallback((err) => {
+    setError(friendlyError(err))
+    setLoading(false)
+  }, [])
+
+  // Retry after a failed load (the banner's Retry button).
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      applyCoreData(await fetchCoreData())
+    } catch (err) {
+      failCoreData(err)
+    }
+  }, [applyCoreData, failCoreData])
+
+  // First load. State is only set once the data arrives (loading starts as
+  // true), and not at all if the provider unmounted meanwhile.
   useEffect(() => {
-    loadAll()
-  }, [loadAll])
+    let alive = true
+    fetchCoreData().then(
+      (data) => alive && applyCoreData(data),
+      (err) => alive && failCoreData(err),
+    )
+    return () => {
+      alive = false
+    }
+  }, [applyCoreData, failCoreData])
 
   const mergeExplanationData = useCallback((result) => {
     setExplanations((list) => mergeById(list, result.explanations, newestFirst))
@@ -594,10 +572,4 @@ export function DataProvider({ children }) {
   )
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
-}
-
-export function useData() {
-  const ctx = useContext(DataContext)
-  if (!ctx) throw new Error('useData must be used inside DataProvider')
-  return ctx
 }

@@ -13,7 +13,7 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 6 | iPhone zoomed in when tapping a form field (text under 16px) | Manual test on iPhone (Report 4) | Low | Fixed (29f48a3) |
 | 7 | Tabs and buttons 36–39px tall, below the 44px tap target | Manual test on phone width (Report 4) | Low | Fixed (c327f4d) |
 | 8 | One 515 KB JavaScript bundle; app loads every profile, post, vote and comment at once | `npm run build` output (Report 4) | Medium | Fixed (Step 6: pages and libraries load separately, largest file 259 KB; posts load 20 at a time with only their votes and comments) |
-| 9 | oxlint: 3 warnings (only-export-components ×2, set-state-in-effect) | `npx oxlint` (Report 4) | Low | Open – Step 7 |
+| 9 | oxlint: 3 warnings (only-export-components ×2, set-state-in-effect) | `npx oxlint` (Report 4) | Low | Fixed (Step 7: 0 warnings) |
 | 10 | Double-click on Accept/Decline sent two updates; second showed "This request was already answered" | Code review + double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 11 | Double-click on Send request sent two requests; raw duplicate-key error | Code review + double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 12 | Raw database errors shown in help requests, comments, replies, delete, edit profile, onboarding and sign-in | Code review (Step 1) | Medium | Fixed (Step 1) |
