@@ -233,6 +233,23 @@ export function DataProvider({ children }) {
     [profile?.id, explanations, votes, showToast, refreshReputation],
   )
 
+  // Teachers only; the database rejects anyone else and records who reviewed it.
+  const reviewExplanation = useCallback(
+    async (explanationId, status, note = null) => {
+      const { data, error: updateError } = await supabase
+        .from('explanations')
+        .update({ review_status: status, teacher_note: status === 'needs_correction' ? note : null })
+        .eq('id', explanationId)
+        .select('*')
+        .single()
+      if (updateError) throw updateError
+      const mapped = mapExplanation(data)
+      setExplanations((list) => list.map((item) => (item.id === explanationId ? mapped : item)))
+      return mapped
+    },
+    [],
+  )
+
   const addExplanation = useCallback(
     async ({ subject, title, text }) => {
       const meId = profile?.id
@@ -386,6 +403,7 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
+      reviewExplanation,
       addFeedback,
       deleteFeedback,
       sendHelpRequest,
@@ -412,6 +430,7 @@ export function DataProvider({ children }) {
       loadAll,
       toggleVote,
       addExplanation,
+      reviewExplanation,
       addFeedback,
       deleteFeedback,
       sendHelpRequest,

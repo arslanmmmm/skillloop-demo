@@ -1323,6 +1323,10 @@ h2 {
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
 }
 
+.tab-count {
+  margin-left: 4px;
+}
+
 .count-badge {
   min-width: 20px;
   padding: 1px 6px;
@@ -1341,6 +1345,90 @@ h2 {
 .past-toggle {
   display: block;
   margin: 20px 0 8px;
+}
+
+/* Teacher review */
+.card .review-badge.verified {
+  display: inline-block;
+  margin: 10px 0 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e7f6ec;
+  color: #1c7a3d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.review-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.review-box.warn {
+  background: var(--star-soft);
+  border-left: 3px solid var(--star);
+  color: #7a4a00;
+}
+
+.review-box.hidden {
+  background: var(--chip);
+  border-left: 3px solid var(--muted);
+}
+
+.card .review-box p {
+  margin-top: 2px;
+  color: inherit;
+  overflow-wrap: anywhere;
+}
+
+/* minmax(0, 1fr) lets the dropdowns shrink on narrow phones. */
+.review-filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.review-filters select {
+  width: 100%;
+  min-width: 0;
+}
+
+.review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.review-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card .review-note {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #7a4a00;
+}
+
+.review-none { background: var(--chip); color: var(--muted); }
+.review-verified { background: #e7f6ec; color: #1c7a3d; }
+.review-needs_correction { background: var(--star-soft); color: #a15c00; }
+.review-hidden { background: #fef3f2; color: var(--danger); }
+
+.review-actions .verify-btn {
+  color: #1c7a3d;
+}
+
+.review-actions .undo-btn {
+  margin: 0 0 0 auto;
+}
+
+.review-note-form {
+  margin-top: 12px;
 }
 
 /* Phones: brand and profile menu share the first row, tabs get their own. */

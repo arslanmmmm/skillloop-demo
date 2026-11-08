@@ -10,6 +10,8 @@ const NAV = [
   { to: '/matches', label: 'Help' },
   { to: '/write', label: 'Write' },
 ]
+// Teachers get an extra tab; /review itself also refuses students.
+const TEACHER_NAV = [...NAV, { to: '/review', label: 'Review' }]
 
 export default function AppLayout() {
   const { profile, profileLoading, profileError, completeProfile, refreshProfile } =
@@ -71,7 +73,7 @@ export default function AppLayout() {
             <strong>Explain to earn trust</strong>
           </div>
           <nav className="tabs" aria-label="Main">
-            {NAV.map((item) => (
+            {(profile.role === 'teacher' ? TEACHER_NAV : NAV).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -80,7 +82,11 @@ export default function AppLayout() {
                 }
               >
                 {item.label}
-                {item.to === '/matches' && pendingHelp > 0 ? ` (${pendingHelp})` : ''}
+                {item.to === '/matches' && pendingHelp > 0 && (
+                  <span className="count-badge tab-count" aria-label={`${pendingHelp} new`}>
+                    {pendingHelp}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>

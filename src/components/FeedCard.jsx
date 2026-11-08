@@ -34,6 +34,7 @@ export default function FeedCard({ item, author }) {
           </p>
         </div>
       </div>
+      <ReviewNotice item={item} isAuthor={isOwn} />
       <h3>{item.title}</h3>
       <p className="post-body">{item.text}</p>
       <div className="actions">
@@ -64,6 +65,35 @@ export default function FeedCard({ item, author }) {
       {open && <FeedbackThread explanationId={item.id} authorId={item.authorId} />}
     </article>
   )
+}
+
+// What students see after a teacher review. Hidden posts only reach the
+// author and teachers (the database filters them out for everyone else).
+function ReviewNotice({ item, isAuthor }) {
+  if (item.reviewStatus === 'verified') {
+    return <p className="review-badge verified">✓ Verified by teacher</p>
+  }
+  if (item.reviewStatus === 'needs_correction') {
+    return (
+      <div className="review-box warn" role="note">
+        <strong>⚠ A teacher says this needs correction</strong>
+        {item.teacherNote && <p>{item.teacherNote}</p>}
+      </div>
+    )
+  }
+  if (item.reviewStatus === 'hidden') {
+    return (
+      <div className="review-box hidden" role="note">
+        <strong>Hidden by teacher</strong>
+        <p>
+          {isAuthor
+            ? 'Other students cannot see this post. Ask your teacher what to change.'
+            : 'Students cannot see this post.'}
+        </p>
+      </div>
+    )
+  }
+  return null
 }
 
 export function FeedSkeleton() {

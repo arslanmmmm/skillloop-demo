@@ -29,6 +29,10 @@ export function mapExplanation(row) {
     title: row.title,
     text: row.body,
     createdAt: row.created_at,
+    reviewStatus: row.review_status ?? 'none',
+    teacherNote: row.teacher_note,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
   }
 }
 

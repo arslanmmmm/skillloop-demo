@@ -6,6 +6,7 @@ import FeedPage from './pages/Feed.jsx'
 import LoginPage from './pages/Login.jsx'
 import MatchesPage from './pages/Matches.jsx'
 import ProfilePage from './pages/Profile.jsx'
+import ReviewPage from './pages/Review.jsx'
 import WritePage from './pages/Write.jsx'
 import './App.css'
 
@@ -20,6 +21,7 @@ export default function App() {
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/chat/:requestId" element={<ChatPage />} />
           <Route path="/write" element={<WritePage />} />
+          <Route path="/review" element={<ReviewPage />} />
         </Route>
       </Route>
       <Route path="/" element={<Navigate to="/feed" replace />} />
