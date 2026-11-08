@@ -76,10 +76,16 @@ function ChatThread({ request, meId, userById }) {
   const [loadError, setLoadError] = useState('')
   const [draft, setDraft] = useState('')
   const [sendError, setSendError] = useState('')
-  const [busy, setBusy] = useState(false)
-  // Blocks a second send in the same instant, before `busy` disables the button.
-  const sending = useRef(false)
+  // Mirrors `draft` so two taps in the same instant cannot send the same text twice.
+  const draftRef = useRef('')
+  const inputRef = useRef(null)
+  const tempCount = useRef(0)
   const endRef = useRef(null)
+
+  function changeDraft(value) {
+    draftRef.current = value
+    setDraft(value)
+  }
 
   // Adds messages from the first load, our own sends and Realtime, without duplicates.
   function addMessages(rows) {
@@ -130,13 +136,22 @@ function ChatThread({ request, meId, userById }) {
     endRef.current?.scrollIntoView({ block: 'end' })
   }, [messages.length])
 
+  // Works like a messaging app: the box empties at once, the message shows
+  // straight away (faded until saved), and the keyboard stays open so the next
+  // message can be typed and sent without waiting.
   async function send(event) {
     event?.preventDefault()
-    const body = draft.trim()
-    if (!body || sending.current) return
-    sending.current = true
-    setBusy(true)
+    // Refocus inside the tap itself; iPhone only keeps the keyboard open then.
+    inputRef.current?.focus()
+    const body = draftRef.current.trim()
+    if (!body) return
+    changeDraft('')
     setSendError('')
+    tempCount.current += 1
+    const tempId = `sending-${tempCount.current}`
+    addMessages([
+      { id: tempId, requestId: request.id, senderId: meId, body, createdAt: new Date().toISOString(), pending: true },
+    ])
     try {
       const { data, error } = await supabase
         .from('messages')
@@ -144,13 +159,13 @@ function ChatThread({ request, meId, userById }) {
         .select('*')
         .single()
       if (error) throw error
+      setMessages((list) => list.filter((item) => item.id !== tempId))
       addMessages([mapMessage(data)])
-      setDraft('')
     } catch (err) {
+      setMessages((list) => list.filter((item) => item.id !== tempId))
       setSendError(friendlyError(err))
-    } finally {
-      sending.current = false
-      setBusy(false)
+      // Give the text back, unless the student already started a new message.
+      if (!draftRef.current) changeDraft(body)
     }
   }
 
@@ -178,13 +193,18 @@ function ChatThread({ request, meId, userById }) {
           messages.map((item) => {
             const mine = item.senderId === meId
             return (
-              <div key={item.id} className={mine ? 'msg mine' : 'msg'}>
+              <div
+                key={item.id}
+                className={`msg${mine ? ' mine' : ''}${item.pending ? ' pending' : ''}`}
+              >
                 {!mine && (
                   <span className="msg-name">{userById[item.senderId]?.displayName || 'Student'}</span>
                 )}
                 {/* Plain text on purpose: links are shown, never clickable. */}
                 <p className="msg-text">{item.body}</p>
-                <span className="msg-time">{formatTimeAgo(item.createdAt)}</span>
+                <span className="msg-time">
+                  {item.pending ? 'Sending…' : formatTimeAgo(item.createdAt)}
+                </span>
               </div>
             )
           })
@@ -193,16 +213,23 @@ function ChatThread({ request, meId, userById }) {
       </div>
       <form className="chat-composer" onSubmit={send}>
         <textarea
+          ref={inputRef}
           rows={2}
           maxLength={MESSAGE_MAX}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => changeDraft(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder="Write a message…"
           aria-label="Message"
         />
-        <button type="submit" className="primary" disabled={busy || !draft.trim()}>
-          {busy ? 'Sending…' : 'Send'}
+        {/* preventDefault on press keeps focus (and the keyboard) in the text box. */}
+        <button
+          type="submit"
+          className="primary"
+          disabled={!draft.trim()}
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          Send
         </button>
         {(sendError || draft.length > MESSAGE_MAX - 100) && (
           <p className={sendError ? 'form-error chat-note' : 'muted chat-note'}>

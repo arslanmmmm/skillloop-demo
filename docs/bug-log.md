@@ -22,3 +22,7 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 15 | Double-click on Comment sent two ratings; raw duplicate-key error | Double-click test (Step 1) | Low | Fixed (Step 1) |
 | 16 | Database accepts a help request to a student who does not teach that subject (app never offers it, but the API allows it) | Two-student database test (Step 1) | Low | Open – Step 5 (safety) |
 | 17 | Load-error banner showed raw text ("JWT issued at future") and a developer-only setup hint to students | Two-account test after Supabase project was restored (Step 1) | Low | Fixed |
+| 18 | On iPhone, opening the keyboard in a long chat makes the top bar and message box jump; the box hides behind the keyboard for 1–2 s | Real-phone screen recording (Step 2) | Medium | Open |
+| 19 | No tab is highlighted on the chat page (it belongs to Help) | Real-phone screenshot (Step 2) | Low | Open |
+| 20 | Keyboard closes after every Send, so each message needs an extra tap on the text box; sent messages only appear after the server replies | Real-phone test by student tester (Step 2) | Medium | Fixed |
+| 21 | Text typed while the previous message was still sending was wiped when that send finished | Code review while fixing #20 (Step 2) | Medium | Fixed |

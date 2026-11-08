@@ -1138,6 +1138,10 @@ h2 {
   color: #fff;
 }
 
+.msg.pending {
+  opacity: 0.6;
+}
+
 .msg-name {
   display: block;
   font-size: 12px;
