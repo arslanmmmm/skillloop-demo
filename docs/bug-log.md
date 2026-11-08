@@ -21,3 +21,4 @@ Severity: High = wrong data or security, Medium = error or broken flow a student
 | 14 | Double-click on Reply posted the same reply twice (no database rule stops duplicate replies) | Double-click test (Step 1) | Medium | Fixed (Step 1) |
 | 15 | Double-click on Comment sent two ratings; raw duplicate-key error | Double-click test (Step 1) | Low | Fixed (Step 1) |
 | 16 | Database accepts a help request to a student who does not teach that subject (app never offers it, but the API allows it) | Two-student database test (Step 1) | Low | Open – Step 5 (safety) |
+| 17 | Load-error banner showed raw text ("JWT issued at future") and a developer-only setup hint to students | Two-account test after Supabase project was restored (Step 1) | Low | Fixed |

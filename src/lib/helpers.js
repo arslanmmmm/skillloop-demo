@@ -179,6 +179,9 @@ export function friendlyError(err) {
   if (err?.code === '42501' || /row-level security/i.test(message)) {
     return 'You are not allowed to do that.'
   }
+  if (/jwt|invalid claim|refresh token/i.test(message)) {
+    return 'Your session has expired. Please sign out and sign in again.'
+  }
   if (err?.code === 'P0001' && message) return message
   return message || 'Something went wrong. Please try again.'
 }

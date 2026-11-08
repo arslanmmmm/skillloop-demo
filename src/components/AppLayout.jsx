@@ -86,12 +86,18 @@ export default function AppLayout() {
       <main className="app">
         {error && (
           <p className="banner">
-            Could not load data. Run <code>supabase/schema.sql</code> in the SQL
-            Editor (safe to re-run; it keeps your data).{' '}
+            Could not load data. {error}{' '}
             <button type="button" className="text-btn inline" onClick={loadAll}>
               Retry
-            </button>{' '}
-            {error}
+            </button>
+            {/* Setup hint for developers only; students never see it. */}
+            {import.meta.env.DEV && (
+              <span>
+                {' '}
+                If tables are missing, run <code>supabase/schema.sql</code> in the
+                SQL Editor (safe to re-run).
+              </span>
+            )}
           </p>
         )}
         <Outlet />

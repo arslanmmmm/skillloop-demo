@@ -77,7 +77,7 @@ export function DataProvider({ children }) {
       questionsRes.error ||
       helpRes.error
     if (firstError) {
-      setError(firstError.message)
+      setError(friendlyError(firstError))
       setLoading(false)
       return
     }
