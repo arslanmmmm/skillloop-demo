@@ -1253,6 +1253,17 @@ h2 {
     padding: 20px 16px 64px;
   }
 
+  /* On iPhone, bars pinned to the screen fight the keyboard and jump around.
+     In a chat the page scrolls normally and Safari keeps the box above the keyboard. */
+  .shell.on-chat .shell-header,
+  .chat-composer {
+    position: static;
+  }
+
+  .shell.on-chat .app {
+    padding-bottom: 16px;
+  }
+
   /* iOS Safari zooms into any field under 16px when it gets focus. */
   .form input,
   .form select,

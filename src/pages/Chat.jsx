@@ -80,7 +80,7 @@ function ChatThread({ request, meId, userById }) {
   const draftRef = useRef('')
   const inputRef = useRef(null)
   const tempCount = useRef(0)
-  const endRef = useRef(null)
+  const firstScroll = useRef(true)
 
   function changeDraft(value) {
     draftRef.current = value
@@ -131,10 +131,19 @@ function ChatThread({ request, meId, userById }) {
     }
   }, [request.id])
 
-  // Keep the newest message in view.
+  // Show the newest message: always on first load and after sending, but only
+  // when the student is already near the bottom for incoming messages, so the
+  // page does not jump while they read older ones.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages.length])
+    if (messages.length === 0) return
+    const page = document.documentElement
+    const fromBottom = page.scrollHeight - (window.scrollY + window.innerHeight)
+    const mineLast = messages[messages.length - 1].senderId === meId
+    if (firstScroll.current || mineLast || fromBottom < 250) {
+      firstScroll.current = false
+      window.scrollTo({ top: page.scrollHeight })
+    }
+  }, [messages, meId])
 
   // Works like a messaging app: the box empties at once, the message shows
   // straight away (faded until saved), and the keyboard stays open so the next
@@ -209,7 +218,6 @@ function ChatThread({ request, meId, userById }) {
             )
           })
         )}
-        <div ref={endRef} />
       </div>
       <form className="chat-composer" onSubmit={send}>
         <textarea

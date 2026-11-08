@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth.js'
 import { useAppData } from '../hooks/useAppData.js'
 import CompleteProfile from './CompleteProfile.jsx'
@@ -15,6 +15,8 @@ export default function AppLayout() {
   const { profile, profileLoading, profileError, completeProfile, refreshProfile } =
     useAuth()
   const { toast, error, loadAll, helpRequests } = useAppData()
+  // A chat belongs to the Help tab, and gets a phone layout without pinned bars.
+  const onChat = useLocation().pathname.startsWith('/chat/')
   const pendingHelp =
     helpRequests?.filter(
       (item) => item.helperId === profile?.id && item.status === 'pending',
@@ -61,7 +63,7 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="shell">
+    <div className={onChat ? 'shell on-chat' : 'shell'}>
       <header className="shell-header">
         <div className="shell-inner">
           <div className="brand">
@@ -73,7 +75,9 @@ export default function AppLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className={({ isActive }) => (isActive ? 'tab on' : 'tab')}
+                className={({ isActive }) =>
+                  isActive || (item.to === '/matches' && onChat) ? 'tab on' : 'tab'
+                }
               >
                 {item.label}
                 {item.to === '/matches' && pendingHelp > 0 ? ` (${pendingHelp})` : ''}
