@@ -12,8 +12,14 @@ const NAV = [
   { to: '/matches', label: 'Help' },
   { to: '/write', label: 'Write' },
 ]
-// Teachers get an extra tab; /review itself also refuses students.
-const TEACHER_NAV = [...NAV, { to: '/review', label: 'Review' }]
+// Teachers get Review and admins get Admin; both pages also refuse everyone else.
+function navFor(profile) {
+  return [
+    ...NAV,
+    ...(profile.role === 'teacher' ? [{ to: '/review', label: 'Review' }] : []),
+    ...(profile.isAdmin ? [{ to: '/admin', label: 'Admin' }] : []),
+  ]
+}
 
 export default function AppLayout() {
   const { profile, profileLoading, profileError, completeProfile, refreshProfile } =
@@ -80,7 +86,7 @@ export default function AppLayout() {
             <strong>Explain to earn trust</strong>
           </div>
           <nav className="tabs" aria-label="Main">
-            {(profile.role === 'teacher' ? TEACHER_NAV : NAV).map((item) => (
+            {navFor(profile).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

@@ -23,6 +23,8 @@ export function mapProfile(row, subjects = []) {
     role: row.role,
     // 'teacher' while a teacher sign-up waits for an admin to approve it.
     requestedRole: row.requested_role ?? null,
+    // Admins approve teacher sign-ups on the Admin page (set in the SQL editor only).
+    isAdmin: Boolean(row.is_admin),
     offers: mine.filter((item) => item.kind === 'offer').map((item) => item.subject),
     needs: mine.filter((item) => item.kind === 'need').map((item) => item.subject),
     createdAt: row.created_at,

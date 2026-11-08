@@ -6,6 +6,7 @@ import './App.css'
 
 // Each page is downloaded the first time it is opened, so the first load is
 // smaller (bug #8). AppLayout shows "Loading…" under the header meanwhile.
+const AdminPage = lazy(() => import('./pages/Admin.jsx'))
 const ChatPage = lazy(() => import('./pages/Chat.jsx'))
 const FeedPage = lazy(() => import('./pages/Feed.jsx'))
 const LoginPage = lazy(() => import('./pages/Login.jsx'))
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/chat/:requestId" element={<ChatPage />} />
             <Route path="/write" element={<WritePage />} />
             <Route path="/review" element={<ReviewPage />} />
+            <Route path="/admin" element={<AdminPage />} />
           </Route>
         </Route>
         <Route path="/" element={<Navigate to="/feed" replace />} />

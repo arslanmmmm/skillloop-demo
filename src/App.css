@@ -1778,6 +1778,19 @@ h2 {
   margin: 0;
 }
 
+/* Admin page */
+.person-copy {
+  min-width: 0;
+}
+
+.person-email {
+  overflow-wrap: anywhere;
+}
+
+.person-card .resolve-bar {
+  margin-top: 12px;
+}
+
 /* Phones: brand and profile menu share the first row, tabs get their own. */
 @media (max-width: 640px) {
   .shell-inner {
@@ -1865,5 +1878,18 @@ h2 {
     display: flex;
     align-items: center;
     justify-content: center;
+  }
+}
+
+/* Admins who teach have six tabs; squeeze them a little on the narrowest phones. */
+@media (max-width: 360px) {
+  .tabs {
+    gap: 2px;
+  }
+
+  .tab {
+    min-width: 0;
+    padding: 10px 2px;
+    font-size: 12px;
   }
 }
